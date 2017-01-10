@@ -265,11 +265,17 @@ Game_CharacterBase.prototype.moveDiagonally = function(horz, vert, hdis,vdis) {
             }
         }
     }
-    if (this._direction === this.reverseDir(horz)) {
+    if (Math.abs(vdis) < Math.abs(hdis)) {
         this.setDirection(horz);
-    }
-    if (this._direction === this.reverseDir(vert)) {
+    } else if (Math.abs(hdis) < Math.abs(vdis)) {
         this.setDirection(vert);
+    } else {
+        if (this._direction === this.reverseDir(horz)) {
+            this.setDirection(horz);
+        }
+        if (this._direction === this.reverseDir(vert)) {
+            this.setDirection(vert);
+        }
     }
 };
 
@@ -413,7 +419,13 @@ Game_Player.prototype.initMembers = function() {
     this._pixelMoveData._rect.height = Kien.PixelMovement.playerHeight;
     this._pixelMoveData._rect.x = -this._pixelMoveData._rect.width/2;
     this._pixelMoveData._rect.y = -this._pixelMoveData._rect.height;
+    this._pixelMoveData._isMoveInputed = false;
     this._distanceCount = 0;
+}
+
+Kien.PixelMovement.Game_Player_isMoving = Game_Player.prototype.isMoving;
+Game_Player.prototype.isMoving = function() {
+    return Game_Character.prototype.isMoving.call(this) || this._pixelMoveData._isMoveInputed;
 }
 
 Game_Player.prototype.moveStraight = function(d, dis) {
@@ -422,6 +434,9 @@ Game_Player.prototype.moveStraight = function(d, dis) {
         this._distanceCount++;
     }
     Game_Character.prototype.moveStraight.call(this, d, dis);
+    if (this.isMovementSucceeded()) {
+        this._pixelMoveData._isMoveInputed = true;
+    }
 };
 
 Game_Player.prototype.moveDiagonally = function(horz, vert, hdis, vdis) {
@@ -430,6 +445,9 @@ Game_Player.prototype.moveDiagonally = function(horz, vert, hdis, vdis) {
         this._distanceCount++;
     }
     Game_Character.prototype.moveDiagonally.call(this, horz, vert, hdis, vdis);
+    if (this.isMovementSucceeded()) {
+        this._pixelMoveData._isMoveInputed = true;
+    }
 };
 
 Game_Player.prototype.isMapPassable = function(x, y, d, dis) {
@@ -490,7 +508,7 @@ Game_Player.prototype.executeMove = function(direction) {
 };
 
 Game_Player.prototype.moveByInput = function() {
-    if (!this.isMoving() && this.canMove()) {
+    if ((!this.isMoving() || this._pixelMoveData._isMoveInputed) && this.canMove()) {
         var direction = this.getInputDirection();
         if (direction > 0) {
             $gameTemp.clearDestination();
@@ -501,6 +519,10 @@ Game_Player.prototype.moveByInput = function() {
             if ($gameSystem._pixelMoveEnabled) {
                 var vec = Kien.Vector2D.getDisplacementVector(this.x,this.y,x,y);
                 vec.setMagnitude(Math.min(vec.magnitude, dis));
+                if (vec.magnitude < 0.00001) {
+                    this._pixelMoveData._isMoveInputed = false;
+                    return;
+                }
                 this.moveDiagonally(vec.x > 0 ? 6 : (vec.x < 0 ? 4 : 0),vec.y > 0 ? 2 : (vec.y < 0 ? 8 : 0), Math.abs(vec.x), Math.abs(vec.y));
                 return;
             } else {
@@ -509,8 +531,32 @@ Game_Player.prototype.moveByInput = function() {
         }
         if (direction > 0) {
             this.executeMove(direction);
+        } else {
+            this._pixelMoveData._isMoveInputed = false;
         }
     }
+};
+
+Game_Player.prototype.triggerTouchAction = function() {
+    if ($gameTemp.isDestinationValid()){
+        var direction = this.direction();
+        var x1 = this.x;
+        var y1 = this.y;
+        var x2 = $gameMap.roundXWithDirection(x1, direction);
+        var y2 = $gameMap.roundYWithDirection(y1, direction);
+        var x3 = $gameMap.roundXWithDirection(x2, direction);
+        var y3 = $gameMap.roundYWithDirection(y2, direction);
+        var destX = Math.floor($gameTemp.destinationX());
+        var destY = Math.floor($gameTemp.destinationY());
+        if (x1.between(destX,destX+1) && y1.between(destY,destY+1)) {
+            return this.triggerTouchActionD1(x1, y1);
+        } else if (x2.between(destX,destX+1) && y2.between(destY,destY+1)) {
+            return this.triggerTouchActionD2(x2, y2);
+        } else if (x3.between(destX,destX+1) && y3.between(destY,destY+1)) {
+            return this.triggerTouchActionD3(x2, y2);
+        }
+    }
+    return false;
 };
 
 Kien.PixelMovement.Game_Player_updateStop = Game_Player.prototype.updateStop;
@@ -649,4 +695,28 @@ Sprite_Character.prototype.updateOther = function() {
             this._debugSprite.y = rect.y;
         }
     }
+};
+
+//-----------------------------------------------------------------------------
+// Sprite_Destination
+//
+// The sprite for displaying the destination place of the touch input.
+
+Sprite_Destination.prototype.updatePosition = function() {
+    var tileWidth = $gameMap.tileWidth();
+    var tileHeight = $gameMap.tileHeight();
+    var x = $gameTemp.destinationX();
+    var y = $gameTemp.destinationY();
+    this.x = ($gameMap.adjustX(x)) * tileWidth;
+    this.y = ($gameMap.adjustY(y)) * tileHeight;
+};
+
+Sprite_Destination.prototype.createBitmap = function() {
+    var tileWidth = $gameMap.tileWidth();
+    var tileHeight = $gameMap.tileHeight();
+    this.bitmap = new Bitmap(tileWidth, tileHeight);
+    this.bitmap.drawCircle(tileWidth/2,tileHeight/2,Math.sqrt(tileWidth*tileWidth+tileHeight*tileHeight)/4,"white");
+    this.anchor.x = 0.5;
+    this.anchor.y = 0.5;
+    this.blendMode = Graphics.BLEND_ADD;
 };

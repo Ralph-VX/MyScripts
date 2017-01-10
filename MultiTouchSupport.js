@@ -912,7 +912,7 @@ TouchInput.isTouching = function(fingers, forceNew, mustEqual) {
 		for (var i = 0; i < arr.length; i++) {
 			var ti = arr[i];
 			var tp = this._kienTouches[ti];
-			if (tp.isTouching()) {
+			if (tp.isTouching() && tp.touchLength() > TouchPoint.multiTouchThreshold) {
 				ret.push(tp);
 			}
 		}
@@ -925,7 +925,7 @@ TouchInput.isTouching = function(fingers, forceNew, mustEqual) {
 		for (var i = 0; i < arr.length; i++) {
 			var ti = arr[i];
 			var tp = this._kienTouches[ti];
-			if (tp.isTouching()) {
+			if (tp.isTouching() && tp.touchLength() > TouchPoint.multiTouchThreshold) {
 				ret.push(tp);
 				if (fingers == 0) {
 					if (this._kienReturnedTouchIdentifiers.indexOf(tp._identifier) === -1) {
@@ -1307,6 +1307,8 @@ TouchData.applySize = function(src, width, height) {
 			nobj.ddydxx = obj.ddydxx * ((height/width) / width);
 		}
 		nobj.distance = obj.distance * Math.sqrt(width*width + height*height);
+		nobj.width = width;
+		nobj.height = height;
 		result[n] = nobj;
 	}
 	return result;
@@ -1334,29 +1336,6 @@ TouchData.preProcessRouteData = function(src) {
 	}
 	return result;
 }
-
-//-----------------------------------------------------------------------------
-/**
- * The basic object that represents an image.
- *
- * @class Bitmap
- * @constructor
- * @param {Number} width The width of the bitmap
- * @param {Number} height The height of the bitmap
- */
-
-Bitmap.prototype.drawLine = function(x1, y1, x2, y2, color, width) {
-    var context = this._context;
-    context.save();
-    context.strokeStyle = color;
-    context.lineWidth = width || 1;
-    context.beginPath();
-    context.moveTo(x1,y1);
-    context.lineTo(x2,y2);
-    context.stroke();
-    context.restore();
-    this._setDirty();
-};
 
 //-----------------------------------------------------------------------------
 // Game_Temp
@@ -1389,6 +1368,7 @@ Game_Temp.prototype.clearDestination = function() {
 	Kien.MultiTouchSupport.Game_Temp_clearDestination.call(this);
 	this._mapTouchPoint = null;
 };
+
 //-----------------------------------------------------------------------------
 // Sprite_Button
 //
