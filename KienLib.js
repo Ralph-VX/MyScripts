@@ -10,6 +10,22 @@ var Kien = Kien || {};
 Kien.lib = {};
 
 
+Kien.lib.pluginCommands = {};
+
+Kien.lib.addPluginCommand = function(command, func) {
+    Kien.lib.pluginCommands[command] = func;
+}
+
+Kien.lib.Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
+Game_Interpreter.prototype.pluginCommand = function(command, args) {
+    var func = Kien.lib.pluginCommands[command];
+    if (!!func) {
+        func.call(this, args);
+    } else {
+        Kien.lib.Game_Interpreter_pluginCommand.call(this, command, args);
+    }
+};
+
 //-----------------------------------------------------------------------------
 // Rectangle
 //
@@ -297,94 +313,105 @@ if (!Kien.Vector2D) {
 // Define a utility Function.
 
 if (!Array.prototype.find) {
-  Array.prototype.find = function(predicate) {
-    if (this === null) {
-      throw new TypeError('Array.prototype.find called on null or undefined');
-    }
-    if (typeof predicate !== 'function') {
-      throw new TypeError('predicate must be a function');
-    }
-    var list = Object(this);
-    var length = list.length >>> 0;
-    var thisArg = arguments[1];
-    var value;
 
-    for (var i = 0; i < length; i++) {
-      value = list[i];
-      if (predicate.call(thisArg, value, i, list)) {
-        return value;
-      }
-    }
-    return undefined;
-  };
-};
+    Object.defineProperty(Array.prototype, "find", {
+        value: function(predicate) {
+            if (this === null) {
+                throw new TypeError('Array.prototype.find called on null or undefined');
+            }
+            if (typeof predicate !== 'function') {
+                throw new TypeError('predicate must be a function');
+            }
+            var list = Object(this);
+            var length = list.length >>> 0;
+            var thisArg = arguments[1];
+            var value;
 
-if (!Array.prototype.findIndex) {
-  Array.prototype.findIndex = function(predicate) {
-    if (this === null) {
-      throw new TypeError('Array.prototype.findIndex called on null or undefined');
-    }
-    if (typeof predicate !== 'function') {
-      throw new TypeError('predicate must be a function');
-    }
-    var list = Object(this);
-    var length = list.length >>> 0;
-    var thisArg = arguments[1];
-    var value;
-
-    for (var i = 0; i < length; i++) {
-      value = list[i];
-      if (predicate.call(thisArg, value, i, list)) {
-        return i;
-      }
-    }
-    return -1;
-  };
-};
-
-if (!Array.prototype.find) {
-  Array.prototype.find = function(predicate) {
-    if (this === null) {
-      throw new TypeError('Array.prototype.find called on null or undefined');
-    }
-    if (typeof predicate !== 'function') {
-      throw new TypeError('predicate must be a function');
-    }
-    var list = Object(this);
-    var length = list.length >>> 0;
-    var thisArg = arguments[1];
-    var value;
-
-    for (var i = 0; i < length; i++) {
-      value = list[i];
-      if (predicate.call(thisArg, value, i, list)) {
-        return value;
-      }
-    }
-    return undefined;
-  };
-};
-
-if (!Array.prototype.sample) {
-    Array.prototype.sample = function() {
-        if (this === null) {
-          throw new TypeError('Array.prototype.sample called on null or undefined');
-        }
-        var list = Object(this);
-        var length = list.length >>> 0;
-        var value;
-        if (length === 0){
+            for (var i = 0; i < length; i++) {
+                value = list[i];
+                if (predicate.call(thisArg, value, i, list)) {
+                    return value;
+                }
+            }
             return undefined;
         }
-        var index = Math.floor( Math.random() * length);
-        return list[index];
-    };
-};
+    });
+}
+
+if (!Array.prototype.findIndex) {
+    Object.defineProperty(Array.prototype, "findIndex", {
+        value: function(predicate) {
+            if (this === null) {
+                throw new TypeError('Array.prototype.findIndex called on null or undefined');
+            }
+            if (typeof predicate !== 'function') {
+                throw new TypeError('predicate must be a function');
+            }
+            var list = Object(this);
+            var length = list.length >>> 0;
+            var thisArg = arguments[1];
+            var value;
+
+            for (var i = 0; i < length; i++) {
+                value = list[i];
+                if (predicate.call(thisArg, value, i, list)) {
+                    return i;
+                }
+            }
+        return -1;
+        }
+    });
+}
+
+if (!Array.prototype.find) {
+    Object.defineProperty(Array.prototype, "find", {
+        value: function(predicate) {
+            if (this === null) {
+                throw new TypeError('Array.prototype.find called on null or undefined');
+            }
+            if (typeof predicate !== 'function') {
+                throw new TypeError('predicate must be a function');
+            }
+            var list = Object(this);
+            var length = list.length >>> 0;
+            var thisArg = arguments[1];
+            var value;
+
+            for (var i = 0; i < length; i++) {
+                value = list[i];
+                if (predicate.call(thisArg, value, i, list)) {
+                    return value;
+                }
+            }
+            return undefined;
+        }
+    });
+}
+
+if (!Array.prototype.sample) {
+    Object.defineProperty(Array.prototype, "sample", {
+        value: function(predicate) {
+            if (this === null) {
+                throw new TypeError('Array.prototype.sample called on null or undefined');
+            }
+            var list = Object(this);
+            var length = list.length >>> 0;
+            var value;
+            if (length === 0){
+                return undefined;
+            }
+            var index = Math.floor( Math.random() * length);
+            return list[index];
+        }
+    });
+}
 
 if (!Array.prototype.clear) {
-    Array.prototype.clear = function() {
-        this.splice(0,this.length);
-    }
+    Object.defineProperty(Array.prototype, "clear", {
+        value: function() {
+            this.splice(0,this.length);
+        }
+    });
 }
 
 
@@ -453,3 +480,37 @@ Bitmap.prototype.drawLine = function(x1, y1, x2, y2, color, width) {
     context.restore();
     this._setDirty();
 };
+
+if (!Kien.HashMap) {
+
+    Kien.HashMap = function() {
+        this.hashes = {};
+        this._keys = [];
+    }
+
+    Kien.HashMap.prototype.put = function( key, value ) {
+        if (value === null || value === undefined) {
+            this.remove(key);
+        } else {
+            if (!this._keys.contains(key)) {
+                this._keys.push(key);
+            }
+            this.hashes[key] = value;
+        }
+    }
+
+    Kien.HashMap.prototype.get = function(key) {
+        return this.hashes[key];
+    },
+
+    Kien.HashMap.prototype.keys = function() {
+        return this._keys.clone();
+    },
+
+    Kien.HashMap.prototype.remove = function(key) {
+        if (this._keys.contains(key)) {
+            this._keys.splice(this._keys.indexOf(key), 1);
+            delete this.hashes[key];
+        }
+    }
+}
