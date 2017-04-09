@@ -1,7 +1,7 @@
 //=============================================================================
 // Import Export Savedata
 // ImportExportSaveFile.js
-// Version: 1.00
+// Version: 1.01
 //=============================================================================
 var Imported = Imported || {};
 Imported.Kien_IESaveData = true;
@@ -22,6 +22,11 @@ Kien.IESaveData = {};
       'buttonExport' : shown in the save/load screen to allow user start exporting.
      The image is using same format as default 'ButtonSet' image (top default bottom touching), 
      except all buttons are in separate files.
+
+     changelog:
+     1.01: fix the export/import button keep showing when Button Type is 1.
+     1.00: first release.
+
    @param Text Area X
    @desc X coordinate of Text area.
    @default 208
@@ -97,6 +102,10 @@ Kien.IESaveData = {};
       'buttonImport' : セーブ・ロード画面においてインポート画面に移行するためのボタンとして表示されます。
       'buttonExport' : セーブ・ロード画面においてエクスポート画面に移行するためのボタンとして表示されます。
     画像はデフォルト素材の'ButtonSet'と同様、上半分にデフォルト状態、下半分に押された状態の画像として作成してください。
+
+    更新履歴：
+    1.01: Button Typeが１の時、インポート・エクスポートボタンが表示されるべきでない状態で表示される問題を修正。
+    1.00: 初出
 
    @param Text Area X
    @desc インポート・エクスポートされたセーブデータの内容を表示するエリアの X 座標です。
@@ -343,8 +352,8 @@ Window_SavefileList.prototype.updateCursor = function() {
             this.exportButton.visible = DataManager.isThisGameFile(this.index() + 1);
             this.importButton.visible = true;
         } else {
-            this.exportButton.visible = true;
-            this.importButton.visible = true;
+            this.exportButton.visible = false;
+            this.importButton.visible = false;
             this.setCursorRect(0, 0, 0, 0);
         }
     }
