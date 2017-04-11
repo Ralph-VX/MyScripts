@@ -1689,6 +1689,11 @@ Scene_Map.prototype.processMapTouch = function() {
 };
 
 //-----------------------------------------------------------------------------
+// Scene_Menu
+//
+// The scene class of the menu screen.
+
+//-----------------------------------------------------------------------------
 // Scene_Shop
 //
 // The scene class of the shop screen.
