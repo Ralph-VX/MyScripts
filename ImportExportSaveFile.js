@@ -1,7 +1,7 @@
 //=============================================================================
 // Import Export Savedata
 // ImportExportSaveFile.js
-// Version: 1.01
+// Version: 1.02
 //=============================================================================
 var Imported = Imported || {};
 Imported.Kien_IESaveData = true;
@@ -24,69 +24,91 @@ Kien.IESaveData = {};
      except all buttons are in separate files.
 
      changelog:
+     1.02: support plugin parameter typing.
      1.01: fix the export/import button keep showing when Button Type is 1.
      1.00: first release.
 
    @param Text Area X
+   @type number
    @desc X coordinate of Text area.
    @default 208
 
    @param Text Area Y
+   @type number
    @desc Y coordinate of Text area.
    @default 100
 
    @param Text Area Width
+   @type number
    @desc Width of Text area.
    @default 400
 
    @param Text Area Height
+   @type number
    @desc Height of Text area.
    @default 400
    
    @param OK Button X
+   @type number
    @desc X coordinate of ok button when text area is shown
    @default 308
 
    @param OK Button Y
+   @type number
    @desc Y coordinate of ok button when text area is shown
    @default 520
 
    @param Cancel Button X
+   @type number
    @desc X coordinate of ok button when text area is shown
    @default 508
 
    @param Cancel Button Y
+   @type number
    @desc Y coordinate of ok button when text area is shown
    @default 520
 
    @param Menu Button Type
+   @type number
    @desc Type of Button.
    1 = Show button on File automatically, 2 = Show button at a customizable position.
    @default 1
 
    @param Import Button X
+   @type number
    @desc X coordinate of button when Button type is set to 2
    @default 680
 
    @param Import Button Y
+   @type number
    @desc Y coordinate of button when button type is set to 2
    @default 16
 
    @param Export Button X
+   @type number
    @desc X coordinate of button when Button type is set to 2
    @default 750
 
    @param Export Button Y
+   @type number
    @desc Y coordinate of button when button type is set to 2
    @default 16
    
    @param Export Help Text
+   @type string
    @desc Text shown in help window when export button is clicked.
    @default Copy all text to backup.
 
    @param Import Help Text
+   @type string
    @desc Text shown in help window when import button is clicked.
    @default paste your backup to import.
+
+
+ * @requiredAssets img/system/buttonCancel
+ * @requiredAssets img/system/buttonExport
+ * @requiredAssets img/system/buttonImport
+ * @requiredAssets img/system/buttonOk
    
 */
 
@@ -104,70 +126,90 @@ Kien.IESaveData = {};
     画像はデフォルト素材の'ButtonSet'と同様、上半分にデフォルト状態、下半分に押された状態の画像として作成してください。
 
     更新履歴：
+    1.02: プラグインパラメーターの型設定に対応
     1.01: Button Typeが１の時、インポート・エクスポートボタンが表示されるべきでない状態で表示される問題を修正。
     1.00: 初出
 
    @param Text Area X
+   @type number
    @desc インポート・エクスポートされたセーブデータの内容を表示するエリアの X 座標です。
    @default 208
 
    @param Text Area Y
+   @type number
    @desc インポート・エクスポートされたセーブデータの内容を表示するエリアの Y 座標です。
    @default 100
 
    @param Text Area Width
+   @type number
    @desc インポート・エクスポートされたセーブデータの内容を表示するエリアの横幅です。
    @default 400
 
    @param Text Area Height
+   @type number
    @desc インポート・エクスポートされたセーブデータの内容を表示するエリアの縦幅です。
    @default 400
    
    @param OK Button X
+   @type number
    @desc インポート・エクスポート画面で表示するOKボタンの X 座標です。
    @default 308
 
    @param OK Button Y
+   @type number
    @desc インポート・エクスポート画面で表示するOKボタンの Y 座標です。
    @default 520
 
    @param Cancel Button X
+   @type number
    @desc インポート・エクスポート画面で表示するキャンセルボタンの X 座標です。
    @default 508
 
    @param Cancel Button Y
+   @type number
    @desc インポート・エクスポート画面で表示するキャンセルボタンの Y 座標です。
    @default 520
 
    @param Menu Button Type
-   @desc インポート・エクスポートボタンの仕様を決定します。
-   1 = ボタンは現在選択中のセーブファイルの上に表示されます, 2 = ボタンは指定した座標に固定されます。
+   @type number
+   @desc インポート・エクスポートボタンの位置を決定します。
+   1 = 選択中のセーブファイル上, 2 = 指定した座標
    @default 1
 
    @param Import Button X
+   @type number
    @desc Menu Button Typeが2に設定されている場合のみ、インポートボタンの X 座標を指定します。
    @default 680
 
    @param Import Button Y
+   @type number
    @desc Menu Button Typeが2に設定されている場合のみ、インポートボタンの Y 座標を指定します。
    @default 16
 
    @param Export Button X
+   @type number
    @desc Menu Button Typeが2に設定されている場合のみ、エクスポートボタンの X 座標を指定します。
    @default 750
 
    @param Export Button Y
+   @type number
    @desc Menu Button Typeが2に設定されている場合のみ、エクスポートボタンの Y 座標を指定します。
    @default 16
    
    @param Export Help Text
+   @type string
    @desc エクスポート画面で表示されるヘルプテキストになります。
    @default 表示されているテキストを保存してください。
 
    @param Import Help Text
+   @type string
    @desc インポート画面で表示されるヘルプテキストになります。
-   @default このテキストエリアにセーブデータの文字列を貼り付けてください。
+   @default セーブデータのテキストを貼り付けてください。
    
+ * @requiredAssets img/system/buttonCancel
+ * @requiredAssets img/system/buttonExport
+ * @requiredAssets img/system/buttonImport
+ * @requiredAssets img/system/buttonOk
 */
 Kien.IESaveData.parameters = PluginManager.parameters("ImportExportSaveFile");
 Kien.IESaveData.buttonType = parseInt(Kien.IESaveData.parameters['Menu Button Type'], 10);
@@ -196,14 +238,14 @@ Kien.IESaveData.importHelpText = Kien.IESaveData.parameters['Import Help Text'];
 
 Kien.IESaveData.Graphics_initialize = Graphics.initialize;
 Graphics.initialize = function(width, height, type) {
-	Kien.IESaveData.Graphics_initialize.apply(this, arguments);
-	this._importExportElement = null;
-	this.createImportExportElement();
+    Kien.IESaveData.Graphics_initialize.apply(this, arguments);
+    this._importExportElement = null;
+    this.createImportExportElement();
 }
 
 Graphics.createImportExportElement = function() {
-	this._importExportElement = document.createElement('textarea');
-	this._importExportElement.style.position = 'absolute';
+    this._importExportElement = document.createElement('textarea');
+    this._importExportElement.style.position = 'absolute';
     this._importExportElement.style.left = Kien.IESaveData.textAreaX + 'px';
     this._importExportElement.style.top = Kien.IESaveData.textAreaY + 'px';
     this._importExportElement.style.width = Kien.IESaveData.textAreaWidth + 'px';
@@ -211,7 +253,6 @@ Graphics.createImportExportElement = function() {
     this._importExportElement.zIndex = -1;
     document.body.appendChild(this._importExportElement);
 }
-
 
 //-----------------------------------------------------------------------------
 // DataManager
@@ -461,7 +502,9 @@ Scene_File.prototype.onExportClicked = function() {
         Graphics._importExportElement.setSelectionRange(0, Graphics._importExportElement.textLength);
         Graphics._importExportElement.style.zIndex = 98;
         this.okButton.visible = true;
+        this.cancelButton.visible = false;
         this.okButton.setClickHandler(this.onExportOkClicked.bind(this));
+        this.cancelButton.setClickHandler(null);
         this._helpWindow.setText(Kien.IESaveData.exportHelpText);
         SoundManager.playOk();
     } else {
