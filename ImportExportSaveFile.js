@@ -362,14 +362,14 @@ Window_SavefileList.prototype.createImportExportButton = function() {
         this.setHotFrame(0, h/2, w, h/2);
         this.updateFrame();
     }
-    this.importButton = new Sprite_Button()
+    this.importButton = new Sprite_Button();
     this.importButton.bitmap = ImageManager.loadSystem('buttonImport');
     this.importButton.bitmap.addLoadListener(listener.bind(this.importButton));
     this.importButton.x = Kien.IESaveData.importButtonX;
     this.importButton.y = Kien.IESaveData.importButtonY;
     this.addChild(this.importButton);
 
-    this.exportButton = new Sprite_Button()
+    this.exportButton = new Sprite_Button();
     this.exportButton.bitmap = ImageManager.loadSystem('buttonExport');
     this.exportButton.bitmap.addLoadListener(listener.bind(this.exportButton));
     this.exportButton.x = Kien.IESaveData.exportButtonX;
