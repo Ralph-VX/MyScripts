@@ -270,8 +270,8 @@ Scene_Base.prototype.updateButton = function() {
 			var button = this["_" + buttonType + "Button"];
 			if (currentActiveWindow && currentActiveWindow._handlers) {
 				if (currentActiveWindow.isHandled(handlerName) && !this._isButtonHided(buttonType, currentActiveWindow)) {
-					var defaultPositionFunc = function(bitmap) {
-						this.x = currentActiveWindow.width - bitmap.width * (i+1);
+					var defaultPositionFunc = function(win, index, bitmap) {
+						this.x = win.width - bitmap.width * (index+1);
 						this.y = 0;
 					}
 					var bitmapName = this._getButtonName(buttonType, currentActiveWindow);
@@ -279,7 +279,7 @@ Scene_Base.prototype.updateButton = function() {
 					button.bitmap = ImageManager.loadSystem(bitmapName);
 					button.bitmap.addLoadListener(Kien.ReturnButton.buttonBitmapListener.bind(button));
 					if (position[0] == null || position[1] == null) {
-						button.bitmap.addLoadListener(defaultPositionFunc.bind(button));
+						button.bitmap.addLoadListener(defaultPositionFunc.bind(button, currentActiveWindow, i));
 					} else {
 						button.x = position[0];
 						button.y = position[1];
