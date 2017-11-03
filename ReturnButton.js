@@ -264,28 +264,46 @@ Scene_Base.prototype.updateButton = function() {
 	 	}
 		var buttons = ["return","nextPage","previousPage"];
 		var handlerNames = ["cancel","pagedown","pageup"];
+		var handledName = ["processCancel", "processPagedown", "processPageup"];
+		var nhandledName = [null, "cursorPagedown", "cursorPageup"];
 		for (var i = 0; i < buttons.length; i++) {
 			var buttonType = buttons[i];
 			var handlerName = handlerNames[i];
 			var button = this["_" + buttonType + "Button"];
 			if (currentActiveWindow && currentActiveWindow._handlers) {
-				if (currentActiveWindow.isHandled(handlerName) && !this._isButtonHided(buttonType, currentActiveWindow)) {
-					var defaultPositionFunc = function(win, index, bitmap) {
-						this.x = win.width - bitmap.width * (index+1);
-						this.y = 0;
-					}
-					var bitmapName = this._getButtonName(buttonType, currentActiveWindow);
-					var position = this._getButtonPosition(buttonType, currentActiveWindow);
-					button.bitmap = ImageManager.loadSystem(bitmapName);
-					button.bitmap.addLoadListener(Kien.ReturnButton.buttonBitmapListener.bind(button));
-					if (position[0] == null || position[1] == null) {
-						button.bitmap.addLoadListener(defaultPositionFunc.bind(button, currentActiveWindow, i));
+				if (!this._isButtonHided(buttonType, currentActiveWindow)) {
+					var func;
+					if (currentActiveWindow.isHandled(handlerName)) {
+						if (handledName[i]) {
+							func = currentActiveWindow[handledName[i]].bind(currentActiveWindow);
+						}
 					} else {
-						button.x = position[0];
-						button.y = position[1];
+						if (nhandledName[i]) {
+							func = currentActiveWindow[nhandledName[i]].bind(currentActiveWindow);
+						}
 					}
-					button.setClickHandler(currentActiveWindow._handlers[handlerName]);
-					currentActiveWindow.addChild(button);
+					if (func) {
+						var defaultPositionFunc = function(win, index, bitmap) {
+							this.x = win.width - bitmap.width * (index+1);
+							this.y = 0;
+						}
+						var bitmapName = this._getButtonName(buttonType, currentActiveWindow);
+						var position = this._getButtonPosition(buttonType, currentActiveWindow);
+						button.bitmap = ImageManager.loadSystem(bitmapName);
+						button.bitmap.addLoadListener(Kien.ReturnButton.buttonBitmapListener.bind(button));
+						if (position[0] == null || position[1] == null) {
+							button.bitmap.addLoadListener(defaultPositionFunc.bind(button, currentActiveWindow, i));
+						} else {
+							button.x = position[0];
+							button.y = position[1];
+						}
+						button.setClickHandler(func);
+						currentActiveWindow.addChild(button);
+					} else {
+						if (button.parent) {
+							button.parent.removeChild(button);
+						}
+					}
 				}
 			} else {
 				if (button.parent) {
