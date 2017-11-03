@@ -16,6 +16,31 @@ Kien.lib.addPluginCommand = function(command, func) {
     Kien.lib.pluginCommands[command] = func;
 }
 
+Kien.lib.addPluginCommands = function(obj) {
+    for (var name in obj) {
+        Kien.lib.pluginCommands[name] = obj[name];
+    }
+}
+
+Kien.lib.placeSpriteAtX = function(sprite, x) {
+    sprite.x = x + sprite.anchor.x * sprite.width;
+}
+
+Kien.lib.placeSpriteAtY = function(sprite, y) {
+    sprite.y = y + sprite.anchor.y * sprite.height;
+}
+
+// Script
+Game_Interpreter.prototype.command355 = function() {
+    var script = this.currentCommand().parameters[0] + '\n';
+    while (this.nextEventCode() === 655 || this.nextEventCode() === 355) {
+        this._index++;
+        script += this.currentCommand().parameters[0] + '\n';
+    }
+    eval(script);
+    return true;
+};
+
 Kien.lib.Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
 Game_Interpreter.prototype.pluginCommand = function(command, args) {
     var func = Kien.lib.pluginCommands[command];
@@ -31,6 +56,7 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
 //
 // Define a utility Function.
 if (!Rectangle.prototype.cx) {
+
     Object.defineProperty(Rectangle.prototype, 'left', {
         get: function() {
             return this.x;
@@ -135,12 +161,8 @@ if (!Rectangle.prototype.cx) {
     }
 
     Rectangle.prototype.overlap = function(other) {
-        return (Math.abs(this.cx - other.cx) <= (this.width/2 + other.width/2)) && (Math.abs(this.cy - other.cy) <= (this.height/2 + other.height/2))
+        return this.x > (other.left - this.width) && this.x < (other.right) && this.y > (other.top - this.height) && this.y < other.bottom;
     };
-
-    Rectangle.prototype.includePoint = function(point) {
-        return (point.x >= this.x) && (point.x < this.x+this.width) && (point.y >= this.y) && (point.y < this.y+this.height);
-    }
 
     Rectangle.prototype.clone = function() {
         return new Rectangle(this.x, this.y, this.width, this.height);
@@ -148,8 +170,89 @@ if (!Rectangle.prototype.cx) {
 
     Rectangle.fromString = function(string) {
         var arr = string.split(',');
-        return new Rectangle(parseFloat(arr[0]),parseFloat(arr[1]),parseFloat(arr[2]),parseFloat(arr[3]));
+        try {
+            return new Rectangle(parseFloat(arr[0]),parseFloat(arr[1]),parseFloat(arr[2]),parseFloat(arr[3]));
+        } catch (e) {
+            return null;
+        }
     }
+}
+
+
+//-----------------------------------------------------------------------------
+// Range
+//
+// Represents a range of values.
+
+Kien.Range = function(a, b) {
+    this.a = a || 0;
+    this.b = b || 0;
+}
+
+Kien.Range.prototype.include = function(v) {
+    return v > this.a && v < this.b;
+}
+
+Kien.Range.prototype.overlap = function(other) {
+    return this.b > other.a && this.a < other.b;
+}
+
+Kien.Range.prototype.overlapAmount = function(other) {
+    if (this.overlap(other)) {
+        if (this.b > other.a) {
+            return this.b - other.a;
+        } else if (this.a < other.b) {
+            return other.b - this.a;
+        }
+    }
+    return 0;
+}
+
+Kien.Range.prototype.overlapRange = function(other) {
+    if (this.overlap(other)) {
+        return new Kien.Range(Math.max(this.a, other.a), Math.min(this.b, other.b));
+    } else {
+        return null;
+    }
+}
+
+Kien.Range.prototype.movingOverlapRange = function(other, move) {
+    var st = 0;
+    var ed = 1;
+    if (move == 0) {
+        if (this.overlap(other)) {
+            return new Kien.Range(0, 1)
+        } else {
+            return null;
+        }
+    } else if (move > 0) {
+        if (this.overlap(other)) {
+            st = 0;
+            ed = (other.b - this.a) / move;
+        } else if (this.b <= other.a) {
+            st = (other.a - this.b) / move;
+            ed = (other.b - this.a) / move;
+        } else {
+            return null;
+        }
+    } else {
+        if (this.overlap(other)) {
+            st = 0;
+            ed = (other.a - this.b) / move;
+        } else if (this.a >= other.b) {
+            st = (other.b - this.a) / move;
+            ed = (other.a - this.b) / move;
+        } else {
+            return null;
+        }
+    }
+    return new Kien.Range(st, ed);
+}
+
+Kien.Range.prototype.moveRange = function(d) {
+    this.a += d;
+    this.b += d;
+    return this;
 }
 
 //-----------------------------------------------------------------------------
@@ -163,8 +266,13 @@ if (!Kien.Vector2D) {
     }
 
     Kien.Vector2D.prototype.initialize = function(x,y) {
-        this._x = x || 0;
-        this._y = y || 0;
+        if (x !== undefined && y === undefined) {
+            this._x = x.x;
+            this._y = x.y;
+        } else {
+            this._x = x || 0;
+            this._y = y || 0;
+        }
     }
 
     Object.defineProperty(Kien.Vector2D.prototype, 'x', {
@@ -187,9 +295,14 @@ if (!Kien.Vector2D) {
 
     Kien.Vector2D.prototype.clone = function() {
         var n = new Kien.Vector2D();
-        n.x = this.x;
-        n.y = this.y;
+        n.x = this._x;
+        n.y = this._y;
         return n;
+    }
+
+    Kien.Vector2D.prototype.copy = function(other) {
+        this.x = other.x;
+        this.y = other.y;
     }
 
     Kien.Vector2D.prototype._magnitude = function() {
@@ -226,6 +339,10 @@ if (!Kien.Vector2D) {
         return Math.acos(Math.max(Math.min(1, val), -1));
     }
 
+    Kien.Vector2D.prototype.angleWithHorizon = function() {
+        return this.angleBetween(Kien.Vector2D.xUnitVector) * this.clockwise(Kien.Vector2D.xUnitVector) * -1;
+    }
+
     Kien.Vector2D.prototype.setMagnitude = function(mag) {
         if (this.magnitude != 0) {
             return this.applyMagnitude(1/this.magnitude).applyMagnitude(mag);
@@ -242,6 +359,17 @@ if (!Kien.Vector2D) {
         }
     }
 
+    Kien.Vector2D.prototype.set = function(x,y) {
+        this.x = x;
+        this.y = y;
+        return this;
+    }
+
+    Kien.Vector2D.prototype.translate = function(x, y) {
+        this.x += x;
+        this.y += y;
+        return this;
+    }
     Kien.Vector2D.prototype.translatePoint = function(point) {
         point.x += this.x;
         point.y += this.y;
@@ -288,6 +416,14 @@ if (!Kien.Vector2D) {
         return this;
     }
 
+    Kien.Vector2D.prototype.getMainDirection = function() {
+        if (Math.abs(this.x) > Math.abs(this.y)) {
+            return this.x > 0 ? 6 : 4;
+        } else {
+            return this.y > 0 ? 2 : 8;
+        }
+    }
+
     Kien.Vector2D.getDisplacementVector = function(w,x,y,z) {
         if (y === undefined && z === undefined) {
             z = x.x;
@@ -302,10 +438,327 @@ if (!Kien.Vector2D) {
         return this.getDisplacementVector(w,x,y,z).unit();
     }
 
+    Kien.Vector2D.getVectorFromDirection = function(d) {
+        return new Kien.Vector2D(d === 4 ? -1 : d === 6 ? 1 : 0, d === 2 ? 1 : d === 8 ? -1 : 0);
+    }
+
+    Kien.Vector2D.getVectorFrom2Direction = function(horz, vert) {
+        return new Kien.Vector2D(horz === 4 ? -1 : horz === 6 ? 1 : 0, vert === 2 ? 1 : vert === 8 ? -1 : 0);
+    }
+    
+
     Kien.Vector2D.xUnitVector = new Kien.Vector2D(1,0);
     Kien.Vector2D.yUnitVector = new Kien.Vector2D(0,1);
 
+
 }
+
+
+Kien.MovingRectangle = function() {
+    this.initialize.apply(this, arguments);
+}
+
+Kien.MovingRectangle.prototype = Object.create(Rectangle.prototype);
+Kien.MovingRectangle.prototype.constructor = Kien.MovingRectangle;
+
+Kien.MovingRectangle.prototype.initialize = function(x,y,width,height) {
+    Rectangle.prototype.initialize.apply(this, arguments);
+    this._vec = new Kien.Vector2D(0, 0);
+    this._rotation = 0;
+    this._rotationMatrix = new PIXI.Matrix();
+    this.anchor = new Point(0,0);
+    this._displacementSubjects = {
+        'x' : 0,
+        'y' : 0,
+        'ax' : 0,
+        'ay' : 0,
+        'rotation' : 0
+    };
+    this.calculateRotationMatrix();
+}
+
+Object.defineProperty(Kien.MovingRectangle.prototype, "vector", {
+    get : function() { return this._vec; },
+    set : function(value) { this._vec = value; },
+    configurable : true
+});
+
+Object.defineProperty(Kien.MovingRectangle.prototype, 'rotation', {
+    get : function() { return this._rotation; },
+    set : function(value) { this._rotation = value; this.calculateRotationMatrix(); },
+    configurable : true
+})
+
+Object.defineProperty(Kien.MovingRectangle.prototype, 'ul', {
+    get: function() {
+        this.calculateMatrixDisplacement();
+        return this._rotationMatrix.apply({'x' : 0, 'y' : 0}, new Kien.Vector2D(0,0));
+    },
+    configurable: true
+})
+
+Object.defineProperty(Kien.MovingRectangle.prototype, 'ur', {
+    get: function() {
+        this.calculateMatrixDisplacement();
+        return this._rotationMatrix.apply({'x' : this.width, 'y' : 0}, new Kien.Vector2D(0,0));
+    },
+    configurable: true
+})
+
+Object.defineProperty(Kien.MovingRectangle.prototype, 'bl', {
+    get: function() {
+        this.calculateMatrixDisplacement();
+        return this._rotationMatrix.apply({'x' : 0, 'y' : this.height}, new Kien.Vector2D(0,0));
+    },
+    configurable: true
+})
+
+Object.defineProperty(Kien.MovingRectangle.prototype, 'br', {
+    get: function() {
+        this.calculateMatrixDisplacement();
+        return this._rotationMatrix.apply({'x' : this.width, 'y' : this.height}, new Kien.Vector2D(0,0));
+    },
+    configurable: true
+})
+
+Kien.MovingRectangle.prototype.translate = function(x,y) {
+    if (!y) {
+        y = x.y;
+        x = x.x;
+    }
+    this.x += x;
+    this.y += y;
+    return this;
+}
+
+Kien.MovingRectangle.prototype.calculateRotationMatrix = function() {
+    this._rotationMatrix.a = Math.cos(this._rotation);
+    this._rotationMatrix.b = Math.sin(this._rotation);
+    this._rotationMatrix.c = -Math.sin(this._rotation); // cos, added PI/2
+    this._rotationMatrix.d = Math.cos(this._rotation); // sin, added PI/2
+    this.calculateMatrixDisplacement();
+}
+
+Kien.MovingRectangle.prototype.calculateMatrixDisplacement = function() {
+    if (    this._displacementSubjects.x != this.x ||
+            this._displacementSubjects.y != this.y ||
+            this._displacementSubjects.ax != this.anchor.x ||
+            this._displacementSubjects.ay != this.anchor.y || 
+            this._displacementSubjects.rotation != this._rotation) {
+        this._rotationMatrix.tx = this.x - (this.anchor.x * this._rotationMatrix.a * this.width + this.anchor.y * this._rotationMatrix.c * this.height);
+        this._rotationMatrix.ty = this.y - (this.anchor.x * this._rotationMatrix.b * this.width + this.anchor.y * this._rotationMatrix.d * this.height);
+        this._displacementSubjects = {
+            'x' : this.x,
+            'y' : this.y,
+            'ax' : this.anchor.x,
+            'ay' : this.anchor.y,
+            'rotation' : this._rotation
+        };
+    }
+}
+
+Kien.MovingRectangle.prototype.clone = function() {
+    var obj = new Kien.MovingRectangle(this.x, this.y, this.width, this.height);
+    obj.vector = this.vector.clone();
+    return obj;
+}
+
+Kien.MovingRectangle.prototype.copy = function(other) {
+    var obj = Rectangle.prototype.copy.call(this, other);
+    if (other.vector) {
+        this.vector = other.vector.clone();
+    }
+    return obj;
+}
+
+// Overlap Non Rotation
+Kien.MovingRectangle.prototype._oldoverlap = function(other) {
+    var tvec = this.vector || (new Kien.Vector2D(0, 0));
+    var ovec = other.vector || (new Kien.Vector2D(0, 0));
+    var lb = other.clone();
+    var rv = tvec.subtract(ovec);
+    lb.left -= this.width;
+    lb.top -= this.height;
+    if (this.x > lb.left && this.x < lb.right) {
+        if (this.y > lb.top && this.y < lb.bottom) {
+            return true;
+        }
+    }
+    if (rv.x != 0) {
+
+        var xSide = rv.x > 0 ? lb.left : lb.right;
+        var t = (xSide - this.x) / rv.x;
+        if (t >= 0 && t < 1) {
+            var yd = this.y + rv.y * t;
+            if (yd >= lb.top && yd < lb.bottom) {
+                return true;
+            }
+        }
+    }
+
+    if (rv.y != 0) {
+        var ySide = rv.y > 0 ? lb.top : lb.bottom;
+        var t = (ySide - this.y) / rv.y;
+        if (t >= 0 && t < 1) {
+            var xd = this.x + rv.x * t;
+            if (xd >= lb.left && xd < lb.right) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+Kien.MovingRectangle.prototype.getAllAxes = function(){
+    var ret = [this.ul.subtract(this.ur)];
+    ret[1] = ret[0].crossProduct();
+    return ret;
+}
+
+Kien.MovingRectangle.prototype.getProjection = function(axis) {
+    var vert = this.getAllVertices();
+    var max = axis.dot(vert[0]);
+    var min = max;
+    for (var i = 1; i < vert.length; i++) {
+        var v = axis.dot(vert[i]);
+        if (v < min) {
+            min = v;
+        } else if (v > max) {
+            max = v
+        }
+    }
+    return new Kien.Range(min, max);
+}
+
+Kien.MovingRectangle.prototype.getAllVertices = function() {
+    return [this.ul, this.ur, this.br, this.bl]
+}
+
+Kien.MovingRectangle.prototype.getMaxNonCollideVector = function(other) {
+    return this.checkSATCollide(other).minVec;
+}
+
+Kien.MovingRectangle.prototype.overlap = function(other) {
+    return this.checkSATCollide(other).collide;
+}
+
+
+/* return value:
+    {
+    'collide' : boolean, is collided or not,
+    'minVec' : Kien.Vector2D, minimum vector that avoid collision,
+    'axis' : Kien.Vector2D, axis vector that object is collided, if exists,
+    'overlap' : float, amount of projected overlap in provided axis, if exists
+    }
+*/
+Kien.MovingRectangle.prototype.checkSATCollide = function(other) {
+    var axes1 = this.getAllAxes();
+    var axes2 = other.getAllAxes();
+    var vec = this.vector.clone();
+    var trange = new Kien.Range(0, 1);
+    var ret = {
+        'collide' : false,
+        'minVec' : this.vector.clone(),
+        'axis' : null,
+        'overlap' : Infinity
+    }
+    var axeoverps = [];
+    if (other.vector){
+        vec.subtract(other.vector);
+    }
+    for (var ai = 0; ai < axes1.length; ai++) {
+        var axis = axes1[ai];
+        var r1 = this.getProjection(axis);
+        var r2 = other.getProjection(axis);
+        var v1 = axis.dot(vec);
+        axeoverps.push([r1,r2,v1]);
+        var tr = r1.movingOverlapRange(r2, v1);
+        if (tr == null) {
+            ret.axis = null;
+            return ret;
+        } else {
+            trange = trange.overlapRange(tr);
+            if (trange == null) {
+                ret.axis = null;
+                return ret;
+            }
+        }
+    }
+    for (var ai = 0; ai < axes2.length; ai++) {
+        var axis = axes2[ai];
+        var r1 = this.getProjection(axis);
+        var r2 = other.getProjection(axis);
+        var v1 = axis.dot(vec);
+        axeoverps.push([r1,r2,v1]);
+        var tr = r1.movingOverlapRange(r2, v1);
+        if (tr == null) {
+                ret.axis = null;
+                return ret;
+        } else {
+            trange = trange.overlapRange(tr);
+            if (trange == null) {
+                ret.axis = null;
+                return ret;
+            }
+        }
+    }
+    for (var i = 0; i < axeoverps.length; i++) {
+        var r1 = axeoverps[i][0].moveRange(axeoverps[i][2] * tr.a);
+        var r2 = axeoverps[i][1];
+        var o = r1.overlapAmount(r2);
+        if (o < ret.overlap) {
+            ret.overlap = o;
+            ret.axis = i < axes1.length ? axes1[i] : axes2[i-axes1.length];
+        }
+    }
+    ret.collide = true
+    ret.minVec.applyMagnitude(tr.a);
+    return ret;
+}
+
+Kien.MovingRectangle.prototype._oldgetMaxNonCollideVector = function(other) {
+    var tvec = this.vector || (new Kien.Vector2D(0, 0));
+    var ovec = other.vector || (new Kien.Vector2D(0, 0));
+    var lb = other.clone();
+    var rv = tvec.subtract(ovec);
+    lb.left -= this.width;
+    lb.top -= this.height;
+    if (this.x >= lb.left && this.x < lb.right) {
+        if (this.y >= lb.top && this.y < lb.bottom) {
+            return new Kien.Vector2D(0,0);;
+        }
+    }
+    if (rv.x != 0) {
+
+        var xSide = rv.x > 0 ? lb.left : lb.right;
+        var t = (xSide - this.x) / rv.x;
+        if (t >= 0 && t < 1) {
+            var yd = this.y + rv.y * t;
+            if (yd >= lb.top && yd < lb.bottom) {
+                return new Kien.Vector2D(tvec.x * t, tvec.y);
+            }
+        }
+    }
+
+    if (rv.y != 0) {
+        var ySide = rv.y > 0 ? lb.top : lb.bottom;
+        var t = (ySide - this.y) / rv.y;
+        if (t >= 0 && t < 1) {
+            var xd = this.x + rv.x * t;
+            if (xd >= lb.left && xd < lb.right) {
+                return new Kien.Vector2D(tvec.x, tvec.y * t);
+            }
+        }
+    }
+
+    return tvec.clone();
+}
+
+Kien.MovingRectangle.fromRectangle = function(rect) {
+    return new Kien.MovingRectangle(rect.x, rect.y, rect.width, rect.height);
+}
+
 
 //-----------------------------------------------------------------------------
 // Array
@@ -481,6 +934,24 @@ Bitmap.prototype.drawLine = function(x1, y1, x2, y2, color, width) {
     this._setDirty();
 };
 
+Bitmap.prototype.fillShape = function(coords, color) {
+    if (coords.length < 3) {
+        return;
+    }
+    var context = this._context;
+    context.save();
+    context.fillStyle = color;
+    context.beginPath();
+    context.moveTo(coords[0].x, coords[0].y);
+    for (var i = 1; i < coords.length; i++) {
+        context.lineTo(coords[i].x,coords[i].y);
+    }
+    context.closePath();
+    context.fill();
+    context.restore();
+    this._setDirty();
+};
+
 if (!Kien.HashMap) {
 
     Kien.HashMap = function() {
@@ -514,3 +985,39 @@ if (!Kien.HashMap) {
         }
     }
 }
+
+Kien.Boundary = function() {
+    this._boundboxes = [];
+}
+
+Kien.Boundary.prototype.collided = function(rect) {
+    for (var i = 0; i < this._boundboxes.length; i++) {
+        if (rect.overlap(this._boundboxes[i])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+Kien.Boundary.prototype.addBoundbox = function(box) {
+    this._boundboxes.push(box);
+}
+
+Kien.Boundary.prototype.getMaxNonCollideVector = function(rect) {
+    if (!rect.vector) {
+        return null;
+    }
+    var vec = rect.vector.clone();
+    for (var i = 0; i < this._boundboxes.length; i++) {
+        var nvec = rect.getMaxNonCollideVector(this._boundboxes[i]);
+        if (nvec.magnitude < vec.magnitude) {
+            vec = nvec;
+        }
+    }
+    return vec;
+}
+
+Kien.parseInt = function(string) {
+    return parseInt(string, 10);
+}
+
