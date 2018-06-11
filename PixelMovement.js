@@ -10,7 +10,7 @@ var Kien = Kien || {};
 Kien.PixelMovement = {};
 //=============================================================================
 /*:
- * @plugindesc Magic Tower System bundle. Can be on/off.
+ * @plugindesc To let characters feel more freedom. Can be on/off.
  * @author Kien
  *
  * @param Enabled Default
@@ -19,11 +19,20 @@ Kien.PixelMovement = {};
  *
  * @param Player Size Width
  * @desc Width of the player. 1 means 1 tile.
- * @default 0.7
+ * @default 0.5
  *
  * @param Player Size Height
  * @desc Height of the player. 1 means 1 tile.
- * @default 0.7
+ * @default 0.5
+ * 
+ * @param Event Trigger Length
+ * @desc Length that allow player to trigger the event. 1 means 1 tile.
+ * @default 0.4
+ * 
+ * @param Coordinate Float Precision
+ * @desc Amount of digits to keep in Coordinate. Too small value will cause
+ * coordinate system feels less pixelly, while large will cause glitch.
+ * @default 10
  * 
  * @param Debug Mode
  * @desc show the rects to represents collision rect.
@@ -35,10 +44,12 @@ Kien.PixelMovement.parameters = PluginManager.parameters("PixelMovement");
 Kien.PixelMovement.enableDefault = eval(Kien.PixelMovement.parameters["Enabled Default"]);
 Kien.PixelMovement.playerWidth = parseFloat(Kien.PixelMovement.parameters["Player Size Width"]);
 Kien.PixelMovement.playerHeight = parseFloat(Kien.PixelMovement.parameters["Player Size Height"]);
+Kien.PixelMovement.eventTriggerLength = parseFloat(Kien.PixelMovement.parameters["Event Trigger Length"]);
+Kien.PixelMovement.coordinateFloatPrecision = parseFloat(Kien.PixelMovement.parameters["Coordinate Float Precision"]);
 Kien.PixelMovement.debugMode = eval(Kien.PixelMovement.parameters["Debug Mode"]);
 
 if (!Imported.Kien_Lib) {
-    throw new Error("No Library Found.\n Please put KienLib.js above this plugin.");
+    throw new Error("Library Plugin Not Found.\n Please put KienLib.js above this plugin.");
 }
 
 //-----------------------------------------------------------------------------
@@ -60,42 +71,121 @@ Game_System.prototype.initialize = function() {
 
 Kien.PixelMovement.Game_CharacterBase_initMembers = Game_CharacterBase.prototype.initMembers;
 Game_CharacterBase.prototype.initMembers = function() {
-	Kien.PixelMovement.Game_CharacterBase_initMembers.call(this);
+	Kien.PixelMovement.Game_CharacterBase_initMembers.apply(this, arguments);
 	this._pixelMoveData = {};
-    this._pixelMoveData._lastMove = false;
+    this._pixelMoveData._isMoving = false;
+    this._pixelMoveData._wasMove = false;
+    this._pixelMoveData._lastMoveAmount = new Kien.Vector2D(0, 0);
 	this._pixelMoveData._characterName = this._characterName;
 	this._pixelMoveData._characterIndex = this._characterIndex;
 	// Boundbox from topleft of the graph.
-	this._pixelMoveData._rect = new Rectangle(-0.45,-0.9,0.9,0.9);
+	this._pixelMoveData._rect = new Kien.MovingRectangle(-0.45,-0.9,0.8,0.8);
 }
 
 Kien.PixelMovement.Game_CharacterBase_update = Game_CharacterBase.prototype.update;
 Game_CharacterBase.prototype.update = function() {
-    this._pixelMoveData._lastMove = false;
-    Kien.PixelMovement.Game_CharacterBase_update.call(this);
-    this._pixelMoveData._lastMove = false;
+    this._pixelMoveData._isMoving = false;
+    this._pixelMoveData._wasMove = false;
+    Kien.PixelMovement.Game_CharacterBase_update.apply(this, arguments);
+    this._pixelMoveData._isMoving = false;
 };
 
 Kien.PixelMovement.Game_CharacterBase_updateMove = Game_CharacterBase.prototype.updateMove;
 Game_CharacterBase.prototype.updateMove = function() {
-    Kien.PixelMovement.Game_CharacterBase_updateMove.call(this);
-    this._pixelMoveData._lastMove = true;
+    Kien.PixelMovement.Game_CharacterBase_updateMove.apply(this, arguments);
+    this.tryLeaveCollision();
+    this._pixelMoveData._isMoving = true;
+    this._pixelMoveData._wasMove = true;
 };
+
+Game_CharacterBase.prototype.tryLeaveCollision = function() {
+    // var events = $gameMap.events();
+    // var rect = this.positionRect();
+    // var oldrect = this.positionRect();
+    // for (var i = 0; i < events.length; i++) {
+    //     if (events[i].isNormalPriority() && !events[i].isThrough()) {
+    //         var ret = rect.checkSATCollide(events[i].positionRect());
+    //         if (ret.collide) {
+    //             var vec = ret.axis.applyMagnitude(ret.overlap);
+    //             rect.translate(vec);
+    //         }
+    //     }
+    // }
+    // var enlarge = this.positionRect();
+    // enlarge.enlarge(rect);
+    // var boundary = $gameMap.obtainTerrainBoundbox(enlarge);
+    // var vec = boundary.getMTV(rect);
+    // vec.translate(rect.x - oldrect.x, rect.y - oldrect.y);
+    // if (vec.magnitude != 0) {
+    //     this._x += vec.x;
+    //     this._y += vec.y;
+    //     this._realX += vec.x;
+    //     this._realY += vec.y;
+    // }
+}
 
 Kien.PixelMovement.Game_CharacterBase_isMoving = Game_CharacterBase.prototype.isMoving;
 Game_CharacterBase.prototype.isMoving = function() {
-    return Kien.PixelMovement.Game_CharacterBase_isMoving.call(this) || this._pixelMoveData._lastMove;
+    return Kien.PixelMovement.Game_CharacterBase_isMoving.apply(this, arguments);
 };
 
 Game_CharacterBase.prototype.pos = function(x, y) {
-    return this._pixelMoveData._rect.includePoint(x,y);
+    return this.positionRect().contains(x,y);
 };
 
-Game_CharacterBase.prototype.positionRect = function() {
-    var r = this._pixelMoveData._rect.clone();
-    r.x += this._realX;
-    r.y += this._realY;
+Game_CharacterBase.prototype.positionRect = function(tx, ty) {
+    if (!tx) {
+        tx = this._realX;
+    }
+    if (!ty) {
+        ty = this._realY;
+    }
+    var r = Kien.MovingRectangle.fromRectangle(this._pixelMoveData._rect);
+    r.x += tx;
+    r.y += ty;
     return r;
+}
+
+Game_CharacterBase.prototype.overlap = function(rect) {
+    var rects = [rect];
+    var trect = this.positionRect();
+    if ($gameMap.isLoopHorizontal()) {
+        rects.push(rect.clone().translate($gameMap.width(), 0));
+    }
+    if ($gameMap.isLoopVertical()) {
+        rects.push(rect.clone().translate(0, $gameMap.height()));
+    }
+    if ($gameMap.isLoopHorizontal() && $gameMap.isLoopVertical()) {
+        rects.push(rect.clone().translate($gameMap.width(), $gameMap.height()));
+    }
+    for (var i = 0; i < rects.length; i++) {
+        if (trect.overlap(rects[i])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+Game_CharacterBase.prototype.getMaxNonCollideVector = function(rect) {
+    var trect = this.positionRect();
+    var rects = [trect];
+    var vec = rect.vector
+    if ($gameMap.isLoopHorizontal()) {
+        rects.push(trect.clone().translate($gameMap.width(), 0));
+    }
+    if ($gameMap.isLoopVertical()) {
+        rects.push(trect.clone().translate(0, $gameMap.height()));
+    }
+    if ($gameMap.isLoopHorizontal() && $gameMap.isLoopVertical()) {
+        rects.push(trect.clone().translate($gameMap.width(), $gameMap.height()));
+    }
+    for (var i = 0; i < rects.length; i++) {
+        var temp = rect.getMaxNonCollideVector(rects[i]);
+        if (temp.magnitude < vec.magnitude) {
+            vec = temp;
+        }
+    }
+    return vec;
 }
 
 Game_CharacterBase.prototype.screenX = function() {
@@ -110,6 +200,9 @@ Game_CharacterBase.prototype.screenY = function() {
 };
 
 Game_CharacterBase.prototype.canPass = function(x, y, d, dis) {
+    if ([2,4,6,8].indexOf(d) == -1) {
+        return false;
+    }
     dis = dis || this.defaultMoveAmount();
     var x2 = $gameMap.roundXWithDirection(x, d, dis);
     var y2 = $gameMap.roundYWithDirection(y, d, dis);
@@ -129,49 +222,58 @@ Game_CharacterBase.prototype.canPass = function(x, y, d, dis) {
 };
 
 Game_CharacterBase.prototype.defaultMoveAmount = function() {
-    return $gameMap.defaultMoveAmount();
+    return $gameSystem._pixelMoveEnabled ? this.distancePerFrame() : $gameMap.defaultMoveAmount();
 }
 
 Game_CharacterBase.prototype.canPassDiagonally = function(x, y, horz, vert, hdis, vdis) {
-    hdis = hdis || this.defaultMoveAmount();
-    vdis = vdis || hdis;
-    var x2 = $gameMap.roundXWithDirection(x, horz, hdis);
-    var y2 = $gameMap.roundYWithDirection(y, vert, vdis);
-    if (!this.isMapValid(x2, y2)) {
-        return false;
-    }
-    var d2 = this.reverseDir(horz);
-    var d3 = this.reverseDir(vert);
-    var nrect = this._pixelMoveData._rect.clone();
-    nrect.x += x2;
-    nrect.y += y2;
-    var orect = this._pixelMoveData._rect.clone();
-    orect.x += x;
-    orect.y += y;
-    if (!(this.isMapPassableInternal(orect, horz, horz) && this.isMapPassableInternal(nrect, vert, d3)) && !(this.isMapPassableInternal(orect, vert, d3) && this.isMapPassableInternal(nrect, horz, d2))) {
-        return false;
-    }
-    if (this.isCollidedWithCharacters(x2, y2)) {
-        return false;
-    }
-    return true;
+    return this.getMaxPassableVector(x,y,horz,vert,hdis,vdis).magnitude === 0;
 };
 
-Game_CharacterBase.prototype.isCollidedWithCharacters = function(x, y) {
-    return this.isCollidedWithEvents(x, y) || this.isCollidedWithVehicles(x, y);
+// Return maximum available vector that can move successfully in provided direction.
+Game_CharacterBase.prototype.getMaxPassableVector = function(x, y, horz, vert, hdis, vdis) {
+    var vec = Kien.Vector2D.getVectorFrom2Direction(horz, vert);
+    vec.x *= hdis;
+    vec.y *= vdis;
+    var box = new Kien.MovingRectangle();
+    box.copy(this.positionRect());
+    if (!$gameMap.isLoopHorizontal()) {
+        vec.x = vec.x > 0 ? Math.min(vec.x, $gameMap.width() - box.x - box.width) : -Math.min(Math.abs(vec.x), box.x);
+    }
+    if (!$gameMap.isLoopVertical()) {
+        vec.y = vec.y > 0 ? Math.min(vec.y, $gameMap.height() - box.y - box.height) : -Math.min(Math.abs(vec.y), box.y);
+    }
+    if (this.isThrough() || this.isDebugThrough()) {
+        return vec;
+    } else {
+        var tbox = box.clone();
+        tbox.x += vec.x;
+        tbox.y += vec.y;
+        tbox.vector = new Kien.Vector2D(0,0);
+        tbox.enlarge(box);
+        box.vector = vec;
+        var boundary = $gameMap.obtainTerrainBoundbox(tbox);
+        box.vector = boundary.getMaxNonCollideVector(box);
+        box.vector = this.getMaxNonCollideVectorWithCharacters(box);
+        return box.vector;
+    }
 };
 
-Game_CharacterBase.prototype.isMapPassable = function(x, y, d, dis) {
-    var x2 = $gameMap.roundXWithDirection(x, d, dis);
-    var y2 = $gameMap.roundYWithDirection(y, d, dis);
-    var d2 = this.reverseDir(d);
-    var nrect = this._pixelMoveData._rect.clone();
-    nrect.x += x2;
-    nrect.y += y2;
-    var orect = this._pixelMoveData._rect.clone();
-    orect.x += x;
-    orect.y += y;
-    return this.isMapPassableInternal(orect, d, d) && this.isMapPassableInternal(nrect, d, d2);
+Game_CharacterBase.prototype.isCollidedWithCharacters = function(x,y) {
+    var boundbox;
+    if (!!y) {
+        boundbox = this._pixelMoveData._rect.clone();
+        boundbox.x += x;
+        boundbox.y += y;
+    } else {
+        boundbox = x;
+    }
+    return this.isCollidedWithEvents(boundbox) || this.isCollidedWithVehicles(boundbox);
+};
+
+Game_CharacterBase.prototype.getMaxNonCollideVectorWithCharacters = function(boundbox) {
+    var vec1 = this.getMaxNonCollideVectorWithEvents(boundbox.clone())
+    var vec2 = this.getMaxNonCollideVectorWithVehicles(boundbox.clone());
+    return vec1.magnitude > vec2.magnitude ? vec2 : vec1;
 };
 
 Game_CharacterBase.prototype.isMapValid = function(x, y) {
@@ -184,40 +286,54 @@ Game_CharacterBase.prototype.isMapValid = function(x, y) {
             $gameMap.isValid(nrect.right, nrect.bottom);
 }
 
-Game_CharacterBase.prototype.isMapPassableInternal = function(rect, d, d2) {
-    var points = rect.side(d);
-    for (var pi = 0; pi < points.length; pi++) {
-        var p = points[pi];
-        if (!$gameMap.isPassable(p.x, p.y, d2)) {
-            return false;
-        }
-    }
-    return true;
-}
-
 Game_CharacterBase.prototype.isCollidedWithEvents = function(x, y) {
-    var nrect = this._pixelMoveData._rect.clone();
-    nrect.x += x;
-    nrect.y += y;
-    var events = $gameMap.events().filter(function(e) {
-        return e.positionRect().overlap(nrect) && !e.isThrough();
-    })
-    return events.some(function(event) {
-        return event.isNormalPriority();
-    });
+    var boundbox;
+    if (!!y) {
+        boundbox = this._pixelMoveData._rect.clone();
+        boundbox.x += x;
+        boundbox.y += y;
+    } else {
+        boundbox = x;
+    }
+    return $gameMap.events().some(function(event) {return event.isNormalPriority() && event.overlap(boundbox);});
 };
 
 Game_CharacterBase.prototype.isCollidedWithVehicles = function(x, y) {
-    var rect = this._pixelMoveData._rect.clone();
-    rect.x += x;
-    rect.y += y;
+    var boundbox;
+    if (!!y) {
+        boundbox = this._pixelMoveData._rect.clone();
+        boundbox.x += x;
+        boundbox.y += y;
+    } else {
+        boundbox = x;
+    }
+    return (boundbox.overlap($gameMap.boat().positionRect()) && !$gameMap.boat().isThrough())
+        || (boundbox.overlap($gameMap.ship().positionRect()) && !$gameMap.ship().isThrough());
+};
 
-    return $gameMap.boat().positionRect().overlap(rect) || $gameMap.ship().positionRect().overlap(rect);
+Game_CharacterBase.prototype.getMaxNonCollideVectorWithEvents = function(boundbox) {
+    var events = $gameMap.events();
+    var vec = boundbox.vector.clone();
+    for (var i = 0; i < events.length; i++) {
+        if (events[i].isNormalPriority() && !events[i].isThrough()) {
+            var temp = events[i].getMaxNonCollideVector(boundbox);
+            if (temp.magnitude < vec.magnitude) {
+                vec = temp;
+            }
+        }
+    }
+    return vec;
+};
+
+Game_CharacterBase.prototype.getMaxNonCollideVectorWithVehicles = function(boundbox) {
+    var vec1 = boundbox.getMaxNonCollideVector($gameMap.boat().positionRect());
+    var vec2 = boundbox.getMaxNonCollideVector($gameMap.ship().positionRect());
+    return vec1.magnitude > vec2.magnitude ? vec2 : vec1;
 };
 
 Game_CharacterBase.prototype.setPosition = function(x, y) {
     this._x = Math.round(x) + 0.5;
-    this._y = Math.round(y) + this._pixelMoveData._rect.height;
+    this._y = Math.round(y) + ($gameSystem._pixelMoveEnabled ? this._pixelMoveData._rect.height : 0.9);
     this._realX = this._x;
     this._realY = this._y;
 };
@@ -232,54 +348,48 @@ Game_CharacterBase.prototype.yCoordToPosition = function(y) {
 
 Game_CharacterBase.prototype.moveStraight = function(d, dis) {
     dis = dis !== undefined ? dis : this.defaultMoveAmount();
-    this.setMovementSuccess(this.canPass(this._x, this._y, d, dis));
-    if (this.isMovementSucceeded()) {
-        this.setDirection(d);
-        this._x = $gameMap.roundXWithDirection(this._x, d, dis);
-        this._y = $gameMap.roundYWithDirection(this._y, d, dis);
-        this._realX = $gameMap.xWithDirection(this._x, this.reverseDir(d), dis);
-        this._realY = $gameMap.yWithDirection(this._y, this.reverseDir(d), dis);
-        this.increaseSteps();
-    } else {
-        this.setDirection(d);
-        this.checkEventTriggerTouchFront(d, dis);
-    }
+    var vec = Kien.Vector2D.getVectorFromDirection(d);
+    this.moveDiagonally(d == 4 ? 4 : d == 6 ? 6 : 0, d == 2 ? 2 : d == 8 ? 8 : 0, Math.abs(vec.x * dis), Math.abs(vec.y * dis));
 };
 
 Game_CharacterBase.prototype.moveDiagonally = function(horz, vert, hdis,vdis) {
     hdis = hdis !== undefined ? hdis : this.defaultMoveAmount();
     vdis = vdis !== undefined ? vdis : hdis;
-    this.setMovementSuccess(this.canPassDiagonally(this._x, this._y, horz, vert, hdis, vdis));
-    if (this.isMovementSucceeded()) {
-        this._x = $gameMap.roundXWithDirection(this._x, horz, hdis);
-        this._y = $gameMap.roundYWithDirection(this._y, vert, vdis);
-        this._realX = $gameMap.xWithDirection(this._x, this.reverseDir(horz), hdis);
-        this._realY = $gameMap.yWithDirection(this._y, this.reverseDir(vert), vdis);
-        this.increaseSteps();
-    } else {
-        this.moveStraight(horz, hdis);
-        if (!this.isMovementSucceeded()) {
-            this.moveStraight(vert, vdis);
-            if (this.isMovementSucceeded()){
-                return;
-            }
+    var oldVec = Kien.Vector2D.getVectorFrom2Direction(horz, vert);
+    oldVec.x *= hdis;
+    oldVec.y *= vdis;
+    var vec = this.getMaxPassableVector(this.x, this.y, horz, vert, hdis, vdis);
+    if ($gameSystem._pixelMoveEnabled) {
+        if (vec.magnitude === 0 && horz != 0) {
+            vec = this.getMaxPassableVector(this.x, this.y, horz,0, oldVec.magnitude, 0);
+        } 
+        if (vec.magnitude === 0 && vert != 0) {
+            vec = this.getMaxPassableVector(this.x, this.y, 0, vert, 0, oldVec.magnitude);
         }
+    } else if (oldVec.magnitude != vec.magnitude) {
+        vec = new Kien.Vector2D(0,0);
     }
-    if (Math.abs(vdis) < Math.abs(hdis)) {
-        this.setDirection(horz);
-    } else if (Math.abs(hdis) < Math.abs(vdis)) {
-        this.setDirection(vert);
+    if (vec.magnitude != 0) {
+        this.setMovementSuccess(true);
+        this._x = $gameMap.roundX(this._x + vec.x);
+        this._y = $gameMap.roundY(this._y + vec.y);
+        this._realX = (this._x - vec.x);
+        this._realY = (this._y - vec.y);
+        this.setDirection(vec.getMainDirection());
+        this._pixelMoveData._lastMoveAmount.x = vec.x;
+        this._pixelMoveData._lastMoveAmount.y = vec.y; 
     } else {
-        if (this._direction === this.reverseDir(horz)) {
-            this.setDirection(horz);
-        }
-        if (this._direction === this.reverseDir(vert)) {
-            this.setDirection(vert);
-        }
+        this.setMovementSuccess(false);
+        this.setDirection(horz == 0 ? vert == 0 ? this.direction() : vert : horz);
+        this._pixelMoveData._lastMoveAmount.set(0,0);
     }
+    if (vec.magnitude != oldVec.magnitude) {
+        this.checkEventTriggerTouchFront(this.direction());
+    }
+
 };
 
-Game_CharacterBase.prototype.checkEventTriggerTouchFront = function(d,dis) {
+Game_CharacterBase.prototype.checkEventTriggerTouchFront = function(d, dis) {
     var x2 = $gameMap.roundXWithDirection(this._x, d, dis);
     var y2 = $gameMap.roundYWithDirection(this._y, d, dis);
     this.checkEventTriggerTouch(x2, y2);
@@ -291,7 +401,6 @@ Game_CharacterBase.prototype.checkEventTriggerTouchFront = function(d,dis) {
 // The superclass of Game_Player, Game_Follower, GameVehicle, and Game_Event.
 // Although no edits on this class, leave this header for later use :)
 
-/*
 Game_Character.prototype.findDirectionTo = function(goalX, goalY) {
     var searchLimit = this.searchLimit();
     var mapWidth = $gameMap.width();
@@ -301,7 +410,7 @@ Game_Character.prototype.findDirectionTo = function(goalX, goalY) {
     var start = {};
     var best = start;
 
-    if (this.x === goalX && this.y === goalY) {
+    if (Math.floor(this.x) === goalX && Math.floor(this.y) === goalY) {
         return 0;
     }
 
@@ -405,7 +514,7 @@ Game_Character.prototype.findDirectionTo = function(goalX, goalY) {
 
     return 0;
 };
-*/
+
 //-----------------------------------------------------------------------------
 // Game_Player
 //
@@ -414,39 +523,37 @@ Game_Character.prototype.findDirectionTo = function(goalX, goalY) {
 
 Kien.PixelMovement.Game_Player_initMembers = Game_Player.prototype.initMembers;
 Game_Player.prototype.initMembers = function() {
-    Kien.PixelMovement.Game_Player_initMembers.call(this);
+    Kien.PixelMovement.Game_Player_initMembers.apply(this, arguments);
     this._pixelMoveData._rect.width = Kien.PixelMovement.playerWidth;
     this._pixelMoveData._rect.height = Kien.PixelMovement.playerHeight;
     this._pixelMoveData._rect.x = -this._pixelMoveData._rect.width/2;
     this._pixelMoveData._rect.y = -this._pixelMoveData._rect.height;
     this._pixelMoveData._isMoveInputed = false;
-    this._distanceCount = 0;
+    this._pixelMoveData._distanceCount = 0;
+    this._pixelMoveData._movedDistance = 0;
+    this._pixelMoveData._lastMovedDistance = 0;
+    this._pixelMoveData._triggeredEvents = [];
+    this._followerMovements = [];
 }
 
 Kien.PixelMovement.Game_Player_isMoving = Game_Player.prototype.isMoving;
 Game_Player.prototype.isMoving = function() {
-    return Game_Character.prototype.isMoving.call(this) || this._pixelMoveData._isMoveInputed;
+    return Game_Character.prototype.isMoving.call(this);
 }
 
 Game_Player.prototype.moveStraight = function(d, dis) {
-    if (this.canPass(this.x, this.y, d, dis)) {
-        this._followers.updateMove();
-        this._distanceCount++;
-    }
     Game_Character.prototype.moveStraight.call(this, d, dis);
-    if (this.isMovementSucceeded()) {
-        this._pixelMoveData._isMoveInputed = true;
-    }
 };
 
 Game_Player.prototype.moveDiagonally = function(horz, vert, hdis, vdis) {
-    if (this.canPassDiagonally(this.x, this.y, horz, vert, hdis, vdis)) {
-        this._followers.updateMove();
-        this._distanceCount++;
-    }
+    var length = this._followerMovements.length;
     Game_Character.prototype.moveDiagonally.call(this, horz, vert, hdis, vdis);
-    if (this.isMovementSucceeded()) {
-        this._pixelMoveData._isMoveInputed = true;
+    if (this.isMovementSucceeded() && length === this._followerMovements.length) {
+        var vec2 = this._pixelMoveData._lastMoveAmount;
+        this._followers.updateMove();
+        this._pixelMoveData._distanceCount++;
+        this._followerMovements.push([horz,vert,Math.abs(vec2.x),Math.abs(vec2.y)]);
+        this._pixelMoveData._movedDistance += Math.sqrt(hdis * hdis + vdis * vdis);
     }
 };
 
@@ -462,13 +569,17 @@ Game_Player.prototype.isMapPassable = function(x, y, d, dis) {
 Game_Player.prototype.startMapEvent = function(x, y, triggers, normal) {
     if (!$gameMap.isEventRunning()) {
         var rect = this._pixelMoveData._rect.clone();
+        var triggered = this._pixelMoveData._triggeredEvents;
         rect.x += x;
         rect.y += y;
         $gameMap.events().filter(function(e) {
-            return e.positionRect().overlap(rect);
+            return e.positionRect().overlap(rect) && !triggered.contains(e);
         }).forEach(function(event) {
             if (event.isTriggerIn(triggers) && event.isNormalPriority() === normal) {
                 event.start();
+                if (event.event().meta["Once"]) {
+                    triggered.push(event);
+                }
             }
         });
     }
@@ -481,7 +592,7 @@ Game_Player.prototype.getInputDirection = function() {
 Game_Player.prototype.distancePerMove = function() {
     if ($gameSystem._pixelMoveEnabled) {
         var dis = this.distancePerFrame();
-        dis = Math.min(dis * Math.pow(this._distanceCount + 1, 2) / 100, dis);
+        dis = Math.min(dis * Math.pow(this._pixelMoveData._distanceCount + 1, 2) / 100, dis);
         return dis;
     } else {
         return 1;
@@ -491,10 +602,10 @@ Game_Player.prototype.distancePerMove = function() {
 Game_Player.prototype.executeMove = function(direction) {
     switch (direction) {
         case 2:
+        case 8:
         case 4:
         case 6:
-        case 8:
-            this.moveStraight(direction, this.distancePerMove());
+            this.moveStraight(direction,this.distancePerMove());
             break;
         case 1:
         case 3:
@@ -502,68 +613,258 @@ Game_Player.prototype.executeMove = function(direction) {
         case 9:
             var vert = direction > 5 ? 8 : 2;
             var horz = (direction % 3  == 0 ) ? 6 : 4;
-            this.moveDiagonally(horz, vert, this.distancePerMove());
+            var coe = Math.sqrt(2);
+            this.moveDiagonally(horz, vert, this.distancePerMove() / coe, this.distancePerMove() / coe);
             break;
     }
 };
 
 Game_Player.prototype.moveByInput = function() {
-    if ((!this.isMoving() || this._pixelMoveData._isMoveInputed) && this.canMove()) {
+    if ((!this.isMoving()) && this.canMove()) {
         var direction = this.getInputDirection();
         if (direction > 0) {
             $gameTemp.clearDestination();
         } else if ($gameTemp.isDestinationValid()){
             var dis = this.distancePerFrame();
-            var x = $gameTemp.destinationX();
-            var y = $gameTemp.destinationY();
+            var x = $gameMap.mapToCanvasX($gameTemp.destinationX());
+            var y = $gameMap.mapToCanvasY($gameTemp.destinationY());
             if ($gameSystem._pixelMoveEnabled) {
-                var vec = Kien.Vector2D.getDisplacementVector(this.x,this.y,x,y);
-                vec.setMagnitude(Math.min(vec.magnitude, dis));
-                if (vec.magnitude < 0.00001) {
-                    this._pixelMoveData._isMoveInputed = false;
+                if (this.triggerAction()) {
                     return;
                 }
+                var prect = this.positionRect();
+                var px = $gameMap.mapToCanvasX(prect.cx);
+                var py = $gameMap.mapToCanvasY(prect.cy);
+                var vec = Kien.Vector2D.getDisplacementVector(px,py,x,y).applyMagnitude(1/$gameMap.tileHeight());
+                vec.setMagnitude(Math.min(vec.magnitude, dis));
+                if (vec.magnitude < 0.00001) {
+                    return;
+                }
+                this._pixelMoveData._isMoveInputed = true;
                 this.moveDiagonally(vec.x > 0 ? 6 : (vec.x < 0 ? 4 : 0),vec.y > 0 ? 2 : (vec.y < 0 ? 8 : 0), Math.abs(vec.x), Math.abs(vec.y));
+                this.setDirection(vec.getMainDirection());
                 return;
             } else {
-                direction = this.findDirectionTo(x, y);
+                direction = this.findDirectionTo(Math.floor(x), Math.floor(y));
             }
         }
         if (direction > 0) {
+            this._pixelMoveData._isMoveInputed = true;
             this.executeMove(direction);
-        } else {
-            this._pixelMoveData._isMoveInputed = false;
         }
     }
 };
 
+// Change to use rect's center for universal feeling.
+// Also, that's making more sense.
 Game_Player.prototype.triggerTouchAction = function() {
     if ($gameTemp.isDestinationValid()){
         var direction = this.direction();
-        var x1 = this.x;
-        var y1 = this.y;
-        var x2 = $gameMap.roundXWithDirection(x1, direction);
-        var y2 = $gameMap.roundYWithDirection(y1, direction);
-        var x3 = $gameMap.roundXWithDirection(x2, direction);
-        var y3 = $gameMap.roundYWithDirection(y2, direction);
-        var destX = Math.floor($gameTemp.destinationX());
-        var destY = Math.floor($gameTemp.destinationY());
-        if (x1.between(destX,destX+1) && y1.between(destY,destY+1)) {
-            return this.triggerTouchActionD1(x1, y1);
-        } else if (x2.between(destX,destX+1) && y2.between(destY,destY+1)) {
-            return this.triggerTouchActionD2(x2, y2);
-        } else if (x3.between(destX,destX+1) && y3.between(destY,destY+1)) {
-            return this.triggerTouchActionD3(x2, y2);
+        var el = Kien.PixelMovement.eventTriggerLength;
+        var rect1 = this.positionRect();
+        var rect2 = rect1.clone();
+        rect2.x = $gameMap.roundXWithDirection(rect2.x, direction, el);
+        rect2.y = $gameMap.roundYWithDirection(rect2.y, direction, el);
+        var rect3 = rect2.clone();
+        rect3.x = $gameMap.roundXWithDirection(rect3.x, direction);
+        rect3.y = $gameMap.roundYWithDirection(rect3.y, direction);
+        rect3.enlarge(rect2);
+        var destX = ($gameTemp.destinationX());
+        var destY = ($gameTemp.destinationY());
+        if (rect1.contains(destX,destY)) {
+            return this.triggerTouchActionD1(rect1);
+        // This is ok because the most part of rect2 representing character itself
+        // will cause above condition becomes true.
+        } else if (rect2.contains(destX,destY)) { 
+            return this.triggerTouchActionD2(rect2);
+        // Same reason as above.
+        } else if (rect3.contains(destX,destY)) {
+            return this.triggerTouchActionD3(rect2);
         }
     }
     return false;
 };
 
+Game_Player.prototype.triggerTouchActionD1 = function(rect) {
+    if ($gameMap.airship().overlap(rect)) {
+        if (TouchInput.isTriggered() && this.getOnOffVehicle()) {
+            return true;
+        }
+    }
+    this.checkEventTriggerHere([0]);
+    return $gameMap.setupStartingEvent();
+};
+
+Game_Player.prototype.triggerTouchActionD2 = function(rect) {
+    if ($gameMap.boat().overlap(rect) || $gameMap.ship().overlap(rect)) {
+        if (TouchInput.isTriggered() && this.getOnVehicle()) {
+            return true;
+        }
+    }
+    if (this.isInBoat() || this.isInShip()) {
+        if (TouchInput.isTriggered() && this.getOffVehicle()) {
+            return true;
+        }
+    }
+    this.checkEventTriggerThere([0,1,2]);
+    return $gameMap.setupStartingEvent();
+};
+
+Game_Player.prototype.triggerTouchActionD3 = function(rect) {
+    var sides = rect.side(this.direction());
+    var cp = Kien.lib.getMidPoint(sides[0],sides[1]);
+    if ($gameMap.isCounter(cp.x, cp.y)) {
+        this.checkEventTriggerThere([0,1,2]);
+    }
+    return $gameMap.setupStartingEvent();
+};
+
+Game_Player.prototype.checkEventTriggerThere = function(triggers) {
+    if (this.canStartLocalEvents()) {
+        var direction = this.direction();
+        var el = Kien.PixelMovement.eventTriggerLength;
+        var x1 = this.x;
+        var y1 = this.y;
+        var x2 = $gameMap.roundXWithDirection(x1, direction, el);
+        var y2 = $gameMap.roundYWithDirection(y1, direction, el);
+        this.startMapEvent(x2, y2, triggers, true);
+        if (!$gameMap.isAnyEventStarting()) {
+            var sides = this.positionRect(x2,y2).side(direction);
+            var cp = Kien.lib.getMidPoint(sides[0],sides[1]);
+            if ($gameMap.isCounter(cp.x, cp.y)) {
+                var x3 = $gameMap.roundXWithDirection(x2, direction);
+                var y3 = $gameMap.roundYWithDirection(y2, direction);
+                this.startMapEvent(x3, y3, triggers, true);
+            }
+        }
+    }
+};
+
 Kien.PixelMovement.Game_Player_updateStop = Game_Player.prototype.updateStop;
 Game_Player.prototype.updateStop = function() {
-    Kien.PixelMovement.Game_Player_updateStop.call(this);
-    this._distanceCount = 0;
+    Kien.PixelMovement.Game_Player_updateStop.apply(this, arguments);
+    this._pixelMoveData._distanceCount = 0;
 };
+
+Game_Player.prototype.update = function(sceneActive) {
+    var lastScrolledX = this.scrolledX();
+    var lastScrolledY = this.scrolledY();
+    var wasMoving = this.isMoving();
+    this.updateDashing();
+    if (sceneActive) {
+        this.moveByInput();
+    }
+    Game_Character.prototype.update.call(this);
+    this.updateScroll(lastScrolledX, lastScrolledY);
+    this.updateVehicle();
+    if (!this.isMoving()) {
+        this.updateNonmoving(wasMoving);
+    }
+    this._followers.update();
+};
+
+Game_Player.prototype.updateNonmoving = function(wasMoving) {
+    if (!$gameMap.isEventRunning()) {
+        if (wasMoving || this._pixelMoveData._wasMove) {
+            if (this._pixelMoveData._movedDistance - this._pixelMoveData._lastMovedDistance >= 1) {
+                this._pixelMoveData._lastMovedDistance += 1;
+                $gameParty.onPlayerWalk();
+                this.updateEncounterCount();
+            }
+            this.checkOnceEvent();
+            this.checkEventTriggerHere([1,2]);
+            if ($gameMap.setupStartingEvent()) {
+                return;
+            }
+        }
+        if (!$gameSystem._pixelMoveEnabled && this.triggerAction()) {
+            return;
+        }
+        $gameTemp.clearDestination();
+    }
+};
+
+Game_Player.prototype.checkOnceEvent = function() {
+    var rect = this.positionRect();
+    this._pixelMoveData._triggeredEvents = this._pixelMoveData._triggeredEvents.filter(function(e) { return e.overlap(rect);});
+}
+
+Kien.PixelMovement.Game_Player_locate = Game_Player.prototype.locate;
+Game_Player.prototype.locate = function(x, y) {
+    Kien.PixelMovement.Game_Player_locate.apply(this, arguments);
+    this._pixelMoveData._movedDistance = 0;
+    this._pixelMoveData._lastMovedDistance = 0;
+    this._pixelMoveData._distanceCount = 0;
+};
+
+
+//-----------------------------------------------------------------------------
+// Game_Follower
+//
+// The game object class for a follower. A follower is an allied character,
+// other than the front character, displayed in the party.
+
+Kien.PixelMovement.Game_Follower_initialize = Game_Follower.prototype.initialize;
+Game_Follower.prototype.initialize = function(memberIndex) {
+    Kien.PixelMovement.Game_Follower_initialize.apply(this, arguments);
+    this._followerMovements = [];
+    this._pixelMoveData._movedDistance = 0;
+};
+
+Game_Follower.prototype.precedingCharacter = function() {
+    if (this._memberIndex > 0) {
+        return $gamePlayer.followers().follower(this._memberIndex-1);
+    } else {
+        return $gamePlayer;
+    }
+}
+
+Game_Follower.prototype.chaseCharacter = function(character) {
+    if (character._pixelMoveData._movedDistance < 1) {
+        return;
+    }
+    var data = character._followerMovements.shift();
+    if (data) {
+        this.moveDiagonally(data[0], data[1], data[2], data[3]);
+    }
+    this.setMoveSpeed($gamePlayer.realMoveSpeed());
+};
+
+Kien.PixelMovement.Game_Follower_moveDiagonally = Game_Follower.prototype.moveDiagonally;
+Game_Follower.prototype.moveDiagonally = function(horz, vert, hdis, vdis) {
+    Kien.PixelMovement.Game_Follower_moveDiagonally.apply(this, arguments);
+    if (this.isMovementSucceeded()) {
+        this._followerMovements.push([horz, vert, hdis, vdis]);
+        this._pixelMoveData._movedDistance += Math.sqrt(hdis * hdis + vdis * vdis);
+    }
+}
+
+//-----------------------------------------------------------------------------
+// Game_Followers
+//
+// The wrapper class for a follower array.
+
+Game_Followers.prototype.synchronize = function(x, y, d) {
+    this.forEach(function(follower) {
+        follower.locate(x, y);
+        follower.setDirection(d);
+        follower._pixelMoveData._movedDistance = 0;
+    }, this);
+};
+
+//-----------------------------------------------------------------------------
+// Game_Vehicle
+//
+// The game object class for a vehicle.
+
+Game_Vehicle.prototype.positionRect = function() {
+    if (this._mapId === $gameMap.mapId()) {
+        return Game_Character.prototype.positionRect.call(this);
+    } else {
+        return new Kien.MovingRectangle(0,0,0,0);
+    }
+};
+
 //-----------------------------------------------------------------------------
 // Game_Event
 //
@@ -609,14 +910,24 @@ Game_Map.prototype.canvasToMapX = function(x) {
     var tileWidth = this.tileWidth();
     var originX = this._displayX * tileWidth;
     var mapX = (originX + x) / tileWidth;
-    return mapX;
+    return this.roundX(mapX);
 };
 
 Game_Map.prototype.canvasToMapY = function(y) {
     var tileHeight = this.tileHeight();
     var originY = this._displayY * tileHeight;
     var mapY = (originY + y) / tileHeight;
-    return mapY;
+    return this.roundY(mapY);
+};
+
+Game_Map.prototype.mapToCanvasX = function(x) {
+    var tw = this.tileWidth();
+    return (this.adjustX(x) * tw + tw / 2);
+};
+
+Game_Map.prototype.mapToCanvasY = function(y) {
+    var th = this.tileHeight();
+    return (this.adjustY(y) * th + th / 2);
 };
 
 Game_Map.prototype.defaultMoveAmount = function() {
@@ -645,23 +956,76 @@ Game_Map.prototype.yWithDirection = function(y, d, dis) {
 
 Kien.PixelMovement.Game_Map_eventsXy = Game_Map.prototype.eventsXy;
 Game_Map.prototype.eventsXy = function(x, y) {
-    return Kien.PixelMovement.Game_Map_eventsXy.call(this, Math.floor(x), Math.floor(y));
+    return Kien.PixelMovement.Game_Map_eventsXy.apply(this, arguments);
 };
 
 Kien.PixelMovement.Game_Map_eventsXyNt = Game_Map.prototype.eventsXyNt;
 Game_Map.prototype.eventsXyNt = function(x, y) {
-    return Kien.PixelMovement.Game_Map_eventsXyNt.call(this, Math.floor(x), Math.floor(y));
+    return Kien.PixelMovement.Game_Map_eventsXyNt.apply(this, arguments);
 };
 
 Kien.PixelMovement.Game_Map_layeredTiles = Game_Map.prototype.layeredTiles;
 Game_Map.prototype.layeredTiles = function(x, y) {
-    return Kien.PixelMovement.Game_Map_layeredTiles.call(this, Math.floor(x), Math.floor(y));
+    return Kien.PixelMovement.Game_Map_layeredTiles.apply(this, arguments);
 };
 
 Kien.PixelMovement.Game_Map_tileId = Game_Map.prototype.tileId;
 Game_Map.prototype.tileId = function(x, y, z) {
-    return Kien.PixelMovement.Game_Map_tileId.call(this, Math.floor(x), Math.floor(y), Math.floor(z));
+    return Kien.PixelMovement.Game_Map_tileId.apply(this, arguments);
 };
+
+Game_Map.prototype.obtainTerrainBoundbox = function(rect) {
+    var sx = Math.floor(rect.left);
+    var sy = Math.floor(rect.top);
+    var ex = Math.floor(rect.right);
+    var ey = Math.floor(rect.bottom);
+    var boundary = new Kien.Boundary();
+    var flags = this.tilesetFlags();
+    for (var yi = sy; yi <= ey; yi++) {
+        var ty = (yi + this.height()) % this.height();
+        for (var xi = sx; xi <= ex; xi++) {
+            var tx = (xi + this.width()) % this.width();
+            var tiles = this.allTiles(tx, ty);
+            for (var i = 0; i < tiles.length; i++) {
+                var flag = flags[tiles[i]];
+                if ((flag & 0x10) !== 0)  // [*] No effect on passage
+                    continue;
+                if (flag & 0x01) {
+                    boundary.addBoundbox(new Kien.MovingRectangle(xi, yi + 0.95, 1, 0.05));
+                }
+                if (flag & 0x02) {
+                    boundary.addBoundbox(new Kien.MovingRectangle(xi, yi, 0.05, 1));
+                }
+                if (flag & 0x04) {
+                    boundary.addBoundbox(new Kien.MovingRectangle(xi+0.95, yi, 0.05, 1));
+                }
+                if (flag & 0x08) {
+                    boundary.addBoundbox(new Kien.MovingRectangle(xi, yi, 1, 0.05));
+                }
+                break;
+            }
+        }
+    }
+    return boundary;
+}
+
+Game_Map.prototype.obtainAllCollidedCharacter = function(rect) {
+    return this.events().filter(function(event) {
+        return rect.overlap(event.positionRect());
+    })
+}
+
+Game_Map.prototype.isCollidedWithEvents = function(rect) {
+    return this.events().some(function(event) {
+        return event.overlap(rect);
+    })
+}
+
+Game_Map.prototype.isCollidedWithEventsWithPriority = function(rect, normal) {
+    return this.events().some(function(event) {
+        return event.overlap(rect) && event.isNormalPriority() == normal;
+    })
+}
 
 //-----------------------------------------------------------------------------
 // Sprite_Character
@@ -670,7 +1034,7 @@ Game_Map.prototype.tileId = function(x, y, z) {
 
 Kien.PixelMovement.Sprite_Character_updateOther = Sprite_Character.prototype.updateOther;
 Sprite_Character.prototype.updateOther = function() {
-    Kien.PixelMovement.Sprite_Character_updateOther.call(this);
+    Kien.PixelMovement.Sprite_Character_updateOther.apply(this, arguments);
     if (Kien.PixelMovement.debugMode){
         var rect = this._character.positionRect();
         var tw = $gameMap.tileWidth();
@@ -705,8 +1069,8 @@ Sprite_Character.prototype.updateOther = function() {
 Sprite_Destination.prototype.updatePosition = function() {
     var tileWidth = $gameMap.tileWidth();
     var tileHeight = $gameMap.tileHeight();
-    var x = $gameTemp.destinationX();
-    var y = $gameTemp.destinationY();
+    var x = Math.floor($gameTemp.destinationX()) + 0.5;
+    var y = Math.floor($gameTemp.destinationY()) + 0.5;
     this.x = ($gameMap.adjustX(x)) * tileWidth;
     this.y = ($gameMap.adjustY(y)) * tileHeight;
 };
