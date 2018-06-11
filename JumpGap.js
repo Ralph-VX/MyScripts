@@ -101,7 +101,7 @@ Kien.JumpGap.SE = { name:   Kien.JumpGap.parameters["SE Name"],
 
 Kien.JumpGap.Game_Player_moveStraight = Game_Player.prototype.moveStraight;
 Game_Player.prototype.moveStraight = function (d) {
-    Kien.JumpGap.Game_Player_moveStraight.call(this, d);
+    Kien.JumpGap.Game_Player_moveStraight.apply(this, arguments);
     if (!this.isMovementSucceeded() && !$gameMap.isEventRunning()) {
         var x2 = $gameMap.roundXWithDirection(this._x, d);
         var y2 = $gameMap.roundYWithDirection(this._y, d);
@@ -114,6 +114,7 @@ Game_Player.prototype.moveStraight = function (d) {
                 if (!Kien.JumpGap.SE.name.length == 0){
                     AudioManager.playSe(Kien.JumpGap.SE);
                 }
+                this.setMovementSuccess(true);
             }
         }
     }
