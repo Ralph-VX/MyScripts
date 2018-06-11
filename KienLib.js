@@ -12,6 +12,179 @@ Kien.lib = {};
 
 Kien.lib.pluginCommands = {};
 
+Kien.lib.emptyBitmap = new Bitmap(1,1);
+
+Kien.lib.calculateTextSizeEx = function(text, bitmap, line, w) {
+    bitmap = bitmap || Kien.lib.renderWindow.contents;
+    if (text) {
+        var temp = Kien.lib.renderWindow.contents;
+        Kien.lib.renderWindow.contents = bitmap;
+        var textState = { index: 0, x: 0, y: 0, left: 0, width : 0 };
+        textState.text = Kien.lib.renderWindow.convertEscapeCharacters(text);
+        if (line) {
+            textState.text = textState.text.split("\n")[0];
+        }
+        textState.height = Kien.lib.renderWindow.calcTextHeight(textState, false);
+        var back = {
+            "face" : bitmap.fontFace,
+            "size" : bitmap.fontSize,
+            "color": bitmap.textColor
+        }
+        while (textState.index < textState.text.length) {
+            var c = textState.text[textState.index];
+            switch (c) {
+                case '\n':
+                    textState.width = Math.max(textState.width, textState.x);
+                    textState.x = 0;
+                    textState.y += textState.height;
+                    textState.index++;
+                    break;
+                case '\f':
+                    textState.index++;
+                    break;
+                case '\x1b':
+                    Kien.lib.skipEscapeCharacters(textState);
+                    break;
+                default:
+                    textState.x += Kien.lib.renderWindow.textWidth(c);
+                    textState.index++;
+                    break;
+            }
+        }
+        bitmap.fontFace = back.face;
+        bitmap.fontSize = back.size;
+        bitmap.textColor = back.color;
+        Kien.lib.renderWindow.contents = temp;
+        return {width: Math.max(textState.width, textState.x), 
+                height: textState.y + textState.height};
+    } else {
+        return {width:0, height: 0};
+    }
+};
+
+Kien.lib.setBitmapFontSetting = function(bitmap) {
+    var temp = Kien.lib.renderWindow.contents;
+    Kien.lib.renderWindow.contents = bitmap;
+    Kien.lib.renderWindow.resetFontSettings();
+    Kien.lib.renderWindow.contents = temp;
+}
+
+Kien.lib.skipEscapeCharacters = function(textState) {
+    var c = Kien.lib.renderWindow.obtainEscapeCode(textState);
+    switch (c) {
+        case 'C':
+            Kien.lib.renderWindow.obtainEscapeParam(textState);
+            break;
+        case 'I':
+            Kien.lib.renderWindow.obtainEscapeParam(textState);
+            textState.x += Window_Base._iconWidth + 4;
+            break;
+        case '{':
+            Kien.lib.renderWindow.makeFontBigger();
+            break;
+        case '}':
+            Kien.lib.renderWindow.makeFontSmaller();
+            break;
+    }
+}
+
+Kien.lib._oldcalculateTextSizeEx = function(text,bitmap) {
+    bitmap = bitmap || Kien.lib.renderWindow.contents;
+    if (text) {
+        var temp = Kien.lib.renderWindow.contents;
+        Kien.lib.renderWindow.contents = bitmap;
+        var textState = { index: 0, x: 0, y: 0, left: 0, width : 0 };
+        textState.text = Kien.lib.renderWindow.convertEscapeCharacters(text);
+        textState.height = Kien.lib.renderWindow.calcTextHeight(textState, false);
+        Kien.lib.renderWindow.resetFontSettings();
+        while (textState.index < textState.text.length) {
+            if (textState.text[textState.index] == "\n") {
+                textState.width = Math.max(textState.width, textState.x);
+            }
+            Kien.lib.renderWindow.processCharacter(textState);
+        }
+        Kien.lib.renderWindow.contents = temp;
+        return {width: Math.max(textState.width, textState.x), 
+                height: textState.y + textState.height};
+    } else {
+        return {width:0, height: 0};
+    }
+};
+
+Kien.lib.drawTextExToBitmap = function(text, x, y, bitmap) {
+    if (bitmap && text) {
+        var temp = Kien.lib.renderWindow.contents;
+        Kien.lib.renderWindow.contents = bitmap;
+        Kien.lib.renderWindow.drawTextEx(text, x, y);
+        Kien.lib.renderWindow.contents = temp;
+    }
+}
+
+Kien.lib.drawTextExCenter = function(text, x, y, bitmap) {
+    if (bitmap && text) {
+        var temp = Kien.lib.renderWindow.contents;
+        Kien.lib.renderWindow.contents = bitmap;
+        Kien.lib.renderWindow._drawExCentering = true;
+        Kien.lib.renderWindow.drawTextEx(text, x, y);
+        Kien.lib.renderWindow._drawExCentering = false;
+        Kien.lib.renderWindow.contents = temp;
+    }
+}
+
+Kien.lib.drawTextExToBitmapCenter = function(text, bitmap) {
+    if (bitmap && text) {
+        var size = Kien.lib.calculateTextSizeEx(text, bitmap);
+        Kien.lib.drawTextExCenter(text, 
+            (bitmap.width-size.width)/2,
+            (bitmap.height-size.height)/2,
+            bitmap);
+    }
+}
+
+Kien.lib.Window_Base_processNewLine = Window_Base.prototype.processNewLine;
+Window_Base.prototype.processNewLine = function(textState) {
+    Kien.lib.Window_Base_processNewLine.apply(this, arguments);
+    if (this._drawExCentering) {
+        var totalWidth = Kien.lib.calculateTextSizeEx(textState.text, this.contents).width
+        var lineWidth = Kien.lib.calculateTextSizeEx(textState.text.slice(textState.index), this.contents, true).width
+        textState.x += (totalWidth - lineWidth) / 2;
+    }
+};
+
+Kien.lib.Window_Base_calcTextHeight = Window_Base.prototype.calcTextHeight;
+Window_Base.prototype.calcTextHeight = function(textState, all) {
+    Kien.lib.Window_Base_calcTextHeight.apply(this, arguments);
+    var lastFontSize = this.contents.fontSize;
+    var textHeight = 0;
+    var lines = textState.text.slice(textState.index).split('\n');
+    var maxLines = all ? lines.length : 1;
+
+    for (var i = 0; i < maxLines; i++) {
+        var maxFontSize = this.contents.fontSize;
+        var regExp = /\x1b[\{\}]/g;
+        for (;;) {
+            var array = regExp.exec(lines[i]);
+            if (array) {
+                if (array[0] === '\x1b{') {
+                    this.makeFontBigger();
+                }
+                if (array[0] === '\x1b}') {
+                    this.makeFontSmaller();
+                }
+                if (maxFontSize < this.contents.fontSize) {
+                    maxFontSize = this.contents.fontSize;
+                }
+            } else {
+                break;
+            }
+        }
+        textHeight += maxFontSize + 8;
+    }
+
+    this.contents.fontSize = lastFontSize;
+    return textHeight;
+};
+
 Kien.lib.addPluginCommand = function(command, func) {
     Kien.lib.pluginCommands[command] = func;
 }
@@ -30,6 +203,34 @@ Kien.lib.placeSpriteAtY = function(sprite, y) {
     sprite.y = y + sprite.anchor.y * sprite.height;
 }
 
+Kien.lib.paramParse = function(obj) {
+    return JSON.parse(JSON.stringify(obj, Kien.lib.paramReplace), Kien.lib.paramRevive);
+}
+
+Kien.lib.paramReplace = function(key, value) {
+    try {
+        return JSON.parse(value || null);
+    } catch (e) {
+        return value;
+    }
+};
+
+Kien.lib.paramRevive = function(key, value) {
+    try {
+        return eval(value || value);
+    } catch (e) {
+        return value;
+    }
+};
+
+Kien.lib.getParameters = function(pluginName) {
+    return Kien.lib.paramParse(PluginManager.parameters(pluginName));
+}
+
+Kien.lib.argsToArr = function(args) {
+    return (args.length === 1 ? [args[0]] : Array.apply(null, args));
+}
+
 // Script
 Game_Interpreter.prototype.command355 = function() {
     var script = this.currentCommand().parameters[0] + '\n';
@@ -45,9 +246,9 @@ Kien.lib.Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginComma
 Game_Interpreter.prototype.pluginCommand = function(command, args) {
     var func = Kien.lib.pluginCommands[command];
     if (!!func) {
-        func.call(this, args);
+        func.apply(this, args);
     } else {
-        Kien.lib.Game_Interpreter_pluginCommand.call(this, command, args);
+        Kien.lib.Game_Interpreter_pluginCommand.apply(this, arguments);
     }
 };
 
@@ -341,6 +542,10 @@ if (!Kien.Vector2D) {
 
     Kien.Vector2D.prototype.angleWithHorizon = function() {
         return this.angleBetween(Kien.Vector2D.xUnitVector) * this.clockwise(Kien.Vector2D.xUnitVector) * -1;
+    }
+
+    Kien.Vector2D.prototype.angleWithVector = function(other) {
+        return this.angleBetween(other) * this.clockwise(other) * -1;
     }
 
     Kien.Vector2D.prototype.setMagnitude = function(mag) {
@@ -1021,3 +1226,37 @@ Kien.parseInt = function(string) {
     return parseInt(string, 10);
 }
 
+Game_Event.prototype.firstComments = function() {
+    var string = "";
+    if (this.page()){
+        var list = this.list();
+        if (list && list.length > 1){
+            // read all comments follow by first comment command and return it as a string.
+            var n = 0;
+            while([108,408].indexOf(list[n].code) >= 0){
+                string += list[n].parameters[0] + "\n";
+                n++;
+            }
+        }
+    }
+    return string;
+};
+
+Game_Event.prototype.allComments = function() {
+    var string = "";
+    for (var pi = 0; pi < this.event().pages.length; pi++) {
+        var list = this.event().pages[pi].list;
+        for (var li = 0; li < list.length; li++) {
+            if ([108, 408].indexOf(list[li].code) >= 0) {
+                string += list[li].parameters[0] + "\n";
+            }
+        }
+    }
+    return string;
+}
+
+Kien.lib._Scene_Boot_prototype_start = Scene_Boot.prototype.start;
+Scene_Boot.prototype.start = function() {
+    Kien.lib._Scene_Boot_prototype_start.apply(this, arguments);
+    Kien.lib.renderWindow = new Window_Base(1,1);
+};
