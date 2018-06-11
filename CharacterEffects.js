@@ -7,163 +7,234 @@ var Imported = Imported || {};
 Imported.Kien_CharacterShake = true;
 
 var Kien = Kien || {};
-Kien.CharacterShake = {};
+Kien.CharacterEffects = {};
 //=============================================================================
 /*:
  * @plugindesc Allow you to Use Various Effects on Character.
  * @author Kien
  * @help
- *
- * Plugin Command:
- *  CharacterShake power speed duration isVertical event
- *     power: power of the shake. Same as Event Command.
- *     speed: speed of the shake. Same as Event Command.
- *     duration: duration of the shake. Same as Event Command.
- *     isVertical: 1 for vertical shake, 0 horizontal.
- *     event: Event ID of the event this command targeting. 0 for current, -1 for player.
- *       Let a specified character to shake. Use same algorithm as the Screen Shake event command.
- *
 */
 
 //-----------------------------------------------------------------------------
-// Game_CharacterBase
+// Game_Screen
 //
-// The superclass of Game_Character. It handles basic information, such as
-// coordinates and images, shared by all characters.
+// The game object class for screen effect data, such as changes in color tone
+// and flashes.
 
-
-Kien.CharacterShake.Game_CharacterBase_initMembers = Game_CharacterBase.prototype.initMembers;
-Game_CharacterBase.prototype.initMembers = function() {
-	Kien.CharacterShake.Game_CharacterBase_initMembers.call(this);
-	this.kienClearEffect();
-}
-
-Game_CharacterBase.prototype.kienClearEffect = function() {
-	this._kienEffect = [];
-}
-
-Game_CharacterBase.prototype.kienStartShake = function(power, speed, dur, vert) {
-	this._kienEffect.push({
-		type : "shake",
-		power :power,
-		speed :power,
-		duration :dur,
-		vertical :vert,
-		shake: 0,
-		direction: 1
-	});
-}
+Game_Screen.prototype.pictureFollow = function(pictureId,eventId) {
+    this.picture(pictureId).followEvent(eventId);
+};
 
 //-----------------------------------------------------------------------------
-// Game_Interpreter
+// Game_Picture
 //
-// The interpreter for running event commands.
+// The game object class for a picture.
 
-Kien.CharacterShake.Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
-Game_Interpreter.prototype.pluginCommand = function(command, args) {
-	Kien.CharacterShake.Game_Interpreter_pluginCommand.call(this, command, args);
-	if (command === 'CharacterShake') {
-		var power = parseInt(args[0]);
-		var speed = parseInt(args[1]);
-		var dur = parseInt(args[2]);
-		var vert = parseInt(args[3]);
-		var event = args[4] ? this.character(parseInt(args[4])) : this.character(0);
-		event.kienStartShake(power,speed,dur,vert);
-	}
-};
-//-----------------------------------------------------------------------------
-// Sprite_Base
-//
-// The sprite class with a feature which displays animations.
-
-Kien.CharacterShake.Sprite_Base_initialize = Sprite_Base.prototype.initialize;
-Sprite_Base.prototype.initialize = function() {
-	Kien.CharacterShake.Sprite_Base_initialize.call(this);
-	this._kienEffect = [];
-	this.clearKienEffect();
-};
-
-Sprite_Base.prototype.clearKienEffect = function() {
-	this._kienShakeEffect = {
-		x :0,
-		y :0
-	}
-}
-
-Kien.CharacterShake.Sprite_Base_update = Sprite_Base.prototype.update;
-Sprite_Base.prototype.update = function() {
-	Kien.CharacterShake.Sprite_Base_update.call(this);
-	this.updateEffect();
-};
-
-Sprite_Base.prototype.updateEffect = function() {
-	this.resotreKienEffect();
-	this.clearKienEffect();
-	for (var n = 0; n < this._kienEffect.length; n++) {
-		var obj = this._kienEffect[n];
-		if (obj.type == "shake") {
-			var _shakePower = obj.power;
-			var _shakeSpeed = obj.speed;
-			var _shakeDuration = obj.duration;
-			var _shakeDirection = obj.direction;
-			var _shake = obj.shake;
-			var delta = (_shakePower * _shakeSpeed * _shakeDirection) / 10;
-			if (_shakeDuration <= 1 && _shake * (_shake + delta) < 0) {
-				_shake = 0;
-			} else {
-				_shake += delta;
-			}
-			if (_shake > _shakePower * 2) {
-				obj.duration = -1;
-			}
-			if (_shake < - _shakePower * 2) {
-				obj.duration = 1;
-			}
-			obj.duration--;
-			obj.shake = _shake;
-			if (obj.vertical) {
-				this._kienShakeEffect.y += _shake;
-			} else {
-				this._kienShakeEffect.x += _shake;
-			}
-		}
-	}
-	this.applyKienEffect();
-    var callback = function(s) {
-        return s.duration === 0;
-    }
-    var i = this._kienEffect.findIndex(callback);
-    while (i >= 0) {
-    	var o = this._kienEffect[i];
-    	this.onEffectFinish(o);
-        this._kienEffect.splice(i, 1);
-        i = this._kienEffect.findIndex(callback);
+Game_Picture.prototype.followEvent = function(eventId){
+    this._followingEventId = eventId;
+    if (this._followingEventId > 0){
+        var e = $gameMap.event(eventId);
+        this._followingLastX = e.screenX();
+        this._followingLastY = e.screenY();
+    } else {
+        this._followingLastX = 0;
+        this._followingLastY = 0;
     }
 }
 
-Sprite_Base.prototype.resotreKienEffect = function() {
-	this.x -= this._kienShakeEffect.x;
-	this.y -= this._kienShakeEffect.y;
+Kien.CharacterEffects.Game_Picture_updateMove = Game_Picture.prototype.updateMove;
+Game_Picture.prototype.updateMove = function() {
+	Kien.CharacterEffects.Game_Picture_updateMove.apply(this, arguments);
+    if (this._followingEventId > 0){
+        var e = $gameMap.event(this._followingEventId);
+        var cx = e.screenX();
+        var cy = e.screenY();
+        this._x += cx - this._followingLastX;
+        this._y += cy - this._followingLastY;
+        this._followingLastX = cx;
+        this._followingLastY = cy;
+    }
+};
+
+//-----------------------------------------------------------------------------
+// Game_Character
+//
+// The superclass of Game_Player, Game_Follower, GameVehicle, and Game_Event.
+
+Kien.CharacterEffects.Game_Character_initMembers = Game_Character.prototype.initMembers;
+Game_Character.prototype.initMembers = function() {
+	Kien.CharacterEffects.Game_Character_initMembers.apply(this, arguments);
+    this.clearShake();
+    this.yOffset = 0;
+    this.yOffsetTarget = 0;
+    this.xOffset = 0;
+    this.xOffsetTarget = 0;
+    this.offsetDuration = 0;
+    this.heightOff = 0;
+    this.heightOffTarget = 0;
+    this.yStart = 0;
+    this.yStartTarget = 0;
+    this.yStartDuration = 0;
+    this.heightOffDuration = 0;
 }
 
-Sprite_Base.prototype.applyKienEffect = function() {
-	this.x += this._kienShakeEffect.x;
-	this.y += this._kienShakeEffect.y;
+Game_Character.prototype.clearShake = function() {
+    this._shakePower = 0;
+    this._shakeSpeed = 0;
+    this._shakeDuration = 0;
+    this._shakeDirection = 1;
+    this._shake = 0;
+};
+
+Kien.CharacterEffects.Game_Character_update = Game_Character.prototype.update;
+Game_Character.prototype.update = function() {
+    Kien.CharacterEffects.Game_Character_update.apply(this, arguments);
+    this.updateShake();
+    this.updateHeightOff();
+    this.updateYStart();
+    this.updateOffset();
+};
+
+Game_Character.prototype.updateShake = function() {
+    if (this._shakeDuration > 0 || this._shake !== 0) {
+        var delta = (this._shakePower * this._shakeSpeed * this._shakeDirection) / 10;
+        if (this._shakeDuration <= 1 && this._shake * (this._shake + delta) < 0) {
+            this._shake = 0;
+        } else {
+            this._shake += delta;
+        }
+        if (this._shake > this._shakePower * 2) {
+            this._shakeDirection = -1;
+        }
+        if (this._shake < - this._shakePower * 2) {
+            this._shakeDirection = 1;
+        }
+        this._shakeDuration--;
+    }
+};
+
+Game_Character.prototype.updateHeightOff = function(){
+    if(this.heightOffDuration > 0){
+        this.heightOff += (this.heightOffTarget - this.heightOff) / this.heightOffDuration;
+        this.heightOffDuration--;
+    }
 }
 
-Sprite_Base.prototype.onEffectFinish = function(object) {
-
+Game_Character.prototype.updateYStart = function() {
+    if (this.yStartDuration > 0) {
+        this.yStart += (this.yStartTarget - this.yStart) / this.yStartDuration;
+        this.yStartDuration--;
+    }
 }
+
+Game_Character.prototype.updateOffset = function() {
+    if (this.offsetDuration > 0) {
+        this.xOffset += (this.xOffsetTarget - this.xOffset) / this.offsetDuration;
+        this.yOffset += (this.yOffsetTarget - this.yOffset) / this.offsetDuration;
+        this.offsetDuration--;
+    }
+}
+
+Game_Character.prototype.heightOffTo = function(target,duration){
+    this.heightOffDuration = duration;
+    this.heightOffTarget = target;
+}
+
+Game_Character.prototype.yStartTo = function(target, duration) {
+    this.yStartTo = target;
+    this.yStartDuration = duration;
+}
+
+Game_Character.prototype.offsetTo = function(x,y,duration) {
+    this.xOffsetTarget = x != undefined ? x : this.xOffsetTarget;
+    this.yOffsetTarget = y != undefined ? y : this.yOffsetTarget;
+    this.offsetDuration = duration;
+}
+
+Game_Character.prototype.startShake = function(power, speed, duration) {
+    this._shakePower = power;
+    this._shakeSpeed = speed;
+    this._shakeDuration = duration;
+};
+
+//-----------------------------------------------------------------------------
+// Game_Event
+//
+// The game object class for an event. It contains functionality for event page
+// switching and running parallel process events.
+
+Kien.CharacterEffects.Game_Event_setupPageSettings = Game_Event.prototype.setupPageSettings;
+Game_Event.prototype.setupPageSettings = function() {
+    Kien.CharacterEffects.Game_Event_setupPageSettings.apply(this, arguments);
+    var comment = this.firstComments();
+    if (comment.match(/<offset ([+-]?\d+),([+-]?\d+)>/i)) {
+        this.xOffset = this.xOffsetTarget = parseInt(RegExp.$1);
+        this.yOffset = this.yOffsetTarget = parseInt(RegExp.$2);
+    } else {
+        this.xOffset = this.xOffsetTarget = 0;
+        this.yOffset = this.yOffsetTarget = 0;
+    }
+    if (comment.match(/<heightoff ([+-]?\d+)/i)) {
+        this.heightOff = this.heightOffTarget = parseInt(RegExp.$1);
+    } else {
+        this.heightOff = this.heightOffTarget = 0;
+    }
+    if (comment.match(/<ystart ([+-]?\d+)/i)) {
+        this.yStart = this.yStartTarget = parseInt(RegExp.$1);
+    } else {
+        this.yStart = this.yStartTarget = 0;
+    }
+};
 
 //-----------------------------------------------------------------------------
 // Sprite_Character
 //
 // The sprite for displaying a character.
 
-Sprite_Character.prototype.updateEffect = function() {
-	this._kienEffect = this._kienEffect.concat(this._character._kienEffect);
-	this._character.kienClearEffect();
-	Sprite_Base.prototype.updateEffect.call(this);
+Sprite_Character.prototype.updateCharacterFrame = function() {
+    var pw = this.patternWidth();
+    var ph = this.patternHeight();
+    var sx = (this.characterBlockX() + this.characterPatternX()) * pw;
+    var sy = (this.characterBlockY() + this.characterPatternY()) * ph;
+    var ho = this._character.heightOff;
+    var ys = this._character.yStart;
+    this.updateHalfBodySprites();
+    if (this._bushDepth > 0) {
+        var d = this._bushDepth;
+        if (ho > d) {
+            var h = ph - ys - ho > 0 ? ph - ys - ho : 0;
+            this._lowerBody.setFrame(0, 0, 0, 0);
+            this._upperBody.setFrame(sx, sy + ys, pw, h);
+        } else {
+            if (ys > ph - d) {
+                var l = ph-ys-ho > 0 ? ph-ys-ho : 0;
+                this._upperBody.setFrame(sx, sy+ys, pw, 0);
+                this._lowerBody.setFrame(sx, sy + ph - l, pw, l)
+            } else {
+                this._upperBody.setFrame(sx, sy+ys, pw, ph - d - ys);
+                this._lowerBody.setFrame(sx, sy + ph - d, pw, d-ho);
+            }
+        }
+        this.setFrame(sx, sy, 0, ph);
+    } else {
+        var l = ph-ys-ho > 0 ? ph-ys-ho : 0;
+        this.setFrame(sx, sy+ys, pw, l);
+    }
 };
 
+Sprite_Character.prototype.updateTileFrame = function() {
+    var pw = this.patternWidth();
+    var ph = this.patternHeight();
+    var sx = (Math.floor(this._tileId / 128) % 2 * 8 + this._tileId % 8) * pw;
+    var sy = Math.floor(this._tileId % 256 / 8) % 16 * ph;
+    var ho = this._character.heightOff;
+    var ys = this._character.yStart;
+    var l = ph-ys-ho > 0 ? ph-ys-ho : 0;
+    this.setFrame(sx, sy+ys, pw, l);
+};
 
+Sprite_Character.prototype.updatePosition = function() {
+    this.x = this._character.screenX() + this._character._shake + this._character.xOffset;
+    this.y = this._character.screenY() - this._character.heightOff + this._character.yOffset;
+    this.z = this._character.screenZ();
+};
