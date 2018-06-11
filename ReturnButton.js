@@ -198,24 +198,26 @@ Kien.ReturnButton.buttonBitmapListener = function(bitmap) {
 //
 // The sprite for displaying a button.
 
-Sprite_Button.prototype.processTouch = function() {
-    if (this.isActive()) {
-        if (TouchInput.isTriggered() && this.isButtonTouched()) {
-            this._touching = true;
-            TouchInput.update();
-        }
-        if (this._touching) {
-            if (TouchInput.isReleased() || !this.isButtonTouched()) {
-                this._touching = false;
-                if (TouchInput.isReleased()) {
-                    this.callClickHandler();
-                }
-            }
-        }
-    } else {
-        this._touching = false;
-    }
-};
+if (!Imported.Kien_BetterTouchMouseInput) {
+	Sprite_Button.prototype.processTouch = function() {
+	    if (this.isActive()) {
+	        if (TouchInput.isTriggered() && this.isButtonTouched()) {
+	            this._touching = true;
+	            TouchInput.update();
+	        }
+	        if (this._touching) {
+	            if (TouchInput.isReleased() || !this.isButtonTouched()) {
+	                this._touching = false;
+	                if (TouchInput.isReleased()) {
+	                    this.callClickHandler();
+	                }
+	            }
+	        }
+	    } else {
+	        this._touching = false;
+	    }
+	};
+}
 
 /**
  * The Superclass of all scene within the game.
@@ -226,7 +228,7 @@ Sprite_Button.prototype.processTouch = function() {
  */
 Kien.ReturnButton.Scene_Base_create = Scene_Base.prototype.create;
 Scene_Base.prototype.create = function() {
- 	Kien.ReturnButton.Scene_Base_create.call(this);
+ 	Kien.ReturnButton.Scene_Base_create.apply(this, arguments);
  	if (Kien.ReturnButton.debugMode && Utils.isOptionValid('test')) {
  		console.log(this.constructor.name);
  	}
@@ -250,12 +252,20 @@ Scene_Base.prototype._isButtonHided = function(buttonType, win) {
 
 Kien.ReturnButton.Scene_Base_update = Scene_Base.prototype.update;
 Scene_Base.prototype.update = function() {
-	Kien.ReturnButton.Scene_Base_update.call(this);
+	Kien.ReturnButton.Scene_Base_update.apply(this, arguments);
 	this.updateButton();
 };
 
 Scene_Base.prototype.updateButton = function() {
 	var currentActiveWindow = this._getActiveSelectableWindow();
+	if (Imported.Kien_BetterTouchMouseInput) {
+		if (!TouchInput.isTouch()) {
+		 	this._returnButton.visible = false;
+		 	this._nextPageButton.visible = false;
+			this._previousPageButton.visible = false;
+			return;
+		}
+	}
 	if (currentActiveWindow != this._lastActiveWindow) {
 	 	if (Kien.ReturnButton.debugMode && Utils.isOptionValid('test')) {
 	 		if (currentActiveWindow) {
