@@ -1,7 +1,7 @@
 //=============================================================================
 // Import Export Savedata
 // ImportExportSaveFile.js
-// Version: 1.02
+// Version: 1.03
 //=============================================================================
 var Imported = Imported || {};
 Imported.Kien_IESaveData = true;
@@ -24,6 +24,8 @@ Kien.IESaveData = {};
      except all buttons are in separate files.
 
      changelog:
+     1.03: fixed an issue where input textarea not following screen resize.
+           Merged change from kuro (https://forum.tkool.jp/index.php?threads/100/#post-18430)
      1.02: support plugin parameter typing.
      1.01: fix the export/import button keep showing when Button Type is 1.
      1.00: first release.
@@ -33,7 +35,17 @@ Kien.IESaveData = {};
    @desc X coordinate of Text area.
    @default 208
 
+   @param Text Area X2(For mobile)
+   @type number
+   @desc X coordinate of Text area.
+   @default 208
+
    @param Text Area Y
+   @type number
+   @desc Y coordinate of Text area.
+   @default 100
+
+   @param Text Area Y2(For mobile)
    @type number
    @desc Y coordinate of Text area.
    @default 100
@@ -43,12 +55,27 @@ Kien.IESaveData = {};
    @desc Width of Text area.
    @default 400
 
+   @param Text Area Width2(For mobile)
+   @type number
+   @desc Width of Text area.
+   @default 400
+
    @param Text Area Height
+   @type number
+   @desc Height of Text area.
+   @default 400
+
+   @param Text Area Height2(For mobile)
    @type number
    @desc Height of Text area.
    @default 400
    
    @param OK Button X
+   @type number
+   @desc X coordinate of ok button when text area is shown
+   @default 308
+   
+   @param OK Button X2(For mobile)
    @type number
    @desc X coordinate of ok button when text area is shown
    @default 308
@@ -58,12 +85,27 @@ Kien.IESaveData = {};
    @desc Y coordinate of ok button when text area is shown
    @default 520
 
+   @param OK Button Y2(For mobile)
+   @type number
+   @desc Y coordinate of ok button when text area is shown
+   @default 520
+
    @param Cancel Button X
    @type number
    @desc X coordinate of ok button when text area is shown
    @default 508
 
+   @param Cancel Button X2(For mobile)
+   @type number
+   @desc X coordinate of ok button when text area is shown
+   @default 508
+
    @param Cancel Button Y
+   @type number
+   @desc Y coordinate of ok button when text area is shown
+   @default 520
+
+   @param Cancel Button Y2(For mobile)
    @type number
    @desc Y coordinate of ok button when text area is shown
    @default 520
@@ -79,7 +121,17 @@ Kien.IESaveData = {};
    @desc X coordinate of button when Button type is set to 2
    @default 680
 
+   @param Import Button X2(For mobile)
+   @type number
+   @desc X coordinate of button when Button type is set to 2
+   @default 680
+
    @param Import Button Y
+   @type number
+   @desc Y coordinate of button when button type is set to 2
+   @default 16
+
+   @param Import Button Y2(For mobile)
    @type number
    @desc Y coordinate of button when button type is set to 2
    @default 16
@@ -89,7 +141,17 @@ Kien.IESaveData = {};
    @desc X coordinate of button when Button type is set to 2
    @default 750
 
+   @param Export Button X2(For mobile)
+   @type number
+   @desc X coordinate of button when Button type is set to 2
+   @default 750
+
    @param Export Button Y
+   @type number
+   @desc Y coordinate of button when button type is set to 2
+   @default 16
+
+   @param Export Button Y2(For mobile)
    @type number
    @desc Y coordinate of button when button type is set to 2
    @default 16
@@ -126,6 +188,8 @@ Kien.IESaveData = {};
     画像はデフォルト素材の'ButtonSet'と同様、上半分にデフォルト状態、下半分に押された状態の画像として作成してください。
 
     更新履歴：
+    1.03: 入力欄が画面のリサイズに追従していなかった問題を修正。
+          kuro様による変更をマージ (https://forum.tkool.jp/index.php?threads/100/#post-18430)
     1.02: プラグインパラメーターの型設定に対応
     1.01: Button Typeが１の時、インポート・エクスポートボタンが表示されるべきでない状態で表示される問題を修正。
     1.00: 初出
@@ -135,9 +199,19 @@ Kien.IESaveData = {};
    @desc インポート・エクスポートされたセーブデータの内容を表示するエリアの X 座標です。
    @default 208
 
+   @param Text Area X2(For mobile)
+   @type number
+   @desc インポート・エクスポートされたセーブデータの内容を表示するエリアの X 座標です。（モバイル用）
+   @default 208
+
    @param Text Area Y
    @type number
    @desc インポート・エクスポートされたセーブデータの内容を表示するエリアの Y 座標です。
+   @default 100
+
+   @param Text Area Y2
+   @type number
+   @desc インポート・エクスポートされたセーブデータの内容を表示するエリアの Y 座標です。（モバイル用）
    @default 100
 
    @param Text Area Width
@@ -145,14 +219,29 @@ Kien.IESaveData = {};
    @desc インポート・エクスポートされたセーブデータの内容を表示するエリアの横幅です。
    @default 400
 
+   @param Text Area Width2
+   @type number
+   @desc インポート・エクスポートされたセーブデータの内容を表示するエリアの横幅です。（モバイル用）
+   @default 400
+
    @param Text Area Height
    @type number
    @desc インポート・エクスポートされたセーブデータの内容を表示するエリアの縦幅です。
+   @default 400
+
+   @param Text Area Height2
+   @type number
+   @desc インポート・エクスポートされたセーブデータの内容を表示するエリアの縦幅です。（モバイル用）
    @default 400
    
    @param OK Button X
    @type number
    @desc インポート・エクスポート画面で表示するOKボタンの X 座標です。
+   @default 308
+   
+   @param OK Button X2
+   @type number
+   @desc インポート・エクスポート画面で表示するOKボタンの X 座標です。（モバイル用）
    @default 308
 
    @param OK Button Y
@@ -160,14 +249,29 @@ Kien.IESaveData = {};
    @desc インポート・エクスポート画面で表示するOKボタンの Y 座標です。
    @default 520
 
+   @param OK Button Y2
+   @type number
+   @desc インポート・エクスポート画面で表示するOKボタンの Y 座標です。（モバイル用）
+   @default 520
+
    @param Cancel Button X
    @type number
    @desc インポート・エクスポート画面で表示するキャンセルボタンの X 座標です。
    @default 508
 
+   @param Cancel Button X2
+   @type number
+   @desc インポート・エクスポート画面で表示するキャンセルボタンの X 座標です。（モバイル用）
+   @default 508
+
    @param Cancel Button Y
    @type number
    @desc インポート・エクスポート画面で表示するキャンセルボタンの Y 座標です。
+   @default 520
+
+   @param Cancel Button Y2
+   @type number
+   @desc インポート・エクスポート画面で表示するキャンセルボタンの Y 座標です。（モバイル用）
    @default 520
 
    @param Menu Button Type
@@ -181,9 +285,19 @@ Kien.IESaveData = {};
    @desc Menu Button Typeが2に設定されている場合のみ、インポートボタンの X 座標を指定します。
    @default 680
 
+   @param Import Button X2
+   @type number
+   @desc Menu Button Typeが2に設定されている場合のみ、インポートボタンの X 座標を指定します。（モバイル用）
+   @default 680
+
    @param Import Button Y
    @type number
    @desc Menu Button Typeが2に設定されている場合のみ、インポートボタンの Y 座標を指定します。
+   @default 16
+
+   @param Import Button Y2
+   @type number
+   @desc Menu Button Typeが2に設定されている場合のみ、インポートボタンの Y 座標を指定します。（モバイル用）
    @default 16
 
    @param Export Button X
@@ -191,9 +305,19 @@ Kien.IESaveData = {};
    @desc Menu Button Typeが2に設定されている場合のみ、エクスポートボタンの X 座標を指定します。
    @default 750
 
+   @param Export Button X2
+   @type number
+   @desc Menu Button Typeが2に設定されている場合のみ、エクスポートボタンの X 座標を指定します。（モバイル用）
+   @default 750
+
    @param Export Button Y
    @type number
    @desc Menu Button Typeが2に設定されている場合のみ、エクスポートボタンの Y 座標を指定します。
+   @default 16
+
+   @param Export Button Y2
+   @type number
+   @desc Menu Button Typeが2に設定されている場合のみ、エクスポートボタンの Y 座標を指定します。（モバイル用）
    @default 16
    
    @param Export Help Text
@@ -211,23 +335,41 @@ Kien.IESaveData = {};
  * @requiredAssets img/system/buttonImport
  * @requiredAssets img/system/buttonOk
 */
-Kien.IESaveData.parameters = PluginManager.parameters("ImportExportSaveFile");
-Kien.IESaveData.buttonType = parseInt(Kien.IESaveData.parameters['Menu Button Type'], 10);
-Kien.IESaveData.textAreaX = parseInt(Kien.IESaveData.parameters['Text Area X'], 10);
-Kien.IESaveData.textAreaY = parseInt(Kien.IESaveData.parameters['Text Area Y'], 10);
-Kien.IESaveData.textAreaWidth = parseInt(Kien.IESaveData.parameters['Text Area Width'], 10);
-Kien.IESaveData.textAreaHeight = parseInt(Kien.IESaveData.parameters['Text Area Height'], 10);
-Kien.IESaveData.okButtonX = parseInt(Kien.IESaveData.parameters['OK Button X'], 10);
-Kien.IESaveData.okButtonY = parseInt(Kien.IESaveData.parameters['OK Button Y'], 10);
-Kien.IESaveData.cancelButtonX = parseInt(Kien.IESaveData.parameters['Cancel Button X'], 10);
-Kien.IESaveData.cancelButtonY = parseInt(Kien.IESaveData.parameters['Cancel Button Y'], 10);
-Kien.IESaveData.importButtonX = parseInt(Kien.IESaveData.parameters['Import Button X'], 10);
-Kien.IESaveData.importButtonY = parseInt(Kien.IESaveData.parameters['Import Button Y'], 10);
-Kien.IESaveData.exportButtonX = parseInt(Kien.IESaveData.parameters['Export Button X'], 10);
-Kien.IESaveData.exportButtonY = parseInt(Kien.IESaveData.parameters['Export Button Y'], 10);
-Kien.IESaveData.exportHelpText = Kien.IESaveData.parameters['Export Help Text'];
-Kien.IESaveData.importHelpText = Kien.IESaveData.parameters['Import Help Text'];
-
+if (Utils.isMobileDevice()) {
+    Kien.IESaveData.parameters = PluginManager.parameters("ImportExportSaveFile");
+    Kien.IESaveData.buttonType = parseInt(Kien.IESaveData.parameters['Menu Button Type'], 10);
+    Kien.IESaveData.textAreaX = parseInt(Kien.IESaveData.parameters['Text Area X2'], 10);
+    Kien.IESaveData.textAreaY = parseInt(Kien.IESaveData.parameters['Text Area Y2'], 10);
+    Kien.IESaveData.textAreaWidth = parseInt(Kien.IESaveData.parameters['Text Area Width2'], 10);
+    Kien.IESaveData.textAreaHeight = parseInt(Kien.IESaveData.parameters['Text Area Height2'], 10);
+    Kien.IESaveData.okButtonX = parseInt(Kien.IESaveData.parameters['OK Button X2'], 10);
+    Kien.IESaveData.okButtonY = parseInt(Kien.IESaveData.parameters['OK Button Y2'], 10);
+    Kien.IESaveData.cancelButtonX = parseInt(Kien.IESaveData.parameters['Cancel Button X2'], 10);
+    Kien.IESaveData.cancelButtonY = parseInt(Kien.IESaveData.parameters['Cancel Button Y2'], 10);
+    Kien.IESaveData.importButtonX = parseInt(Kien.IESaveData.parameters['Import Button X2'], 10);
+    Kien.IESaveData.importButtonY = parseInt(Kien.IESaveData.parameters['Import Button Y2'], 10);
+    Kien.IESaveData.exportButtonX = parseInt(Kien.IESaveData.parameters['Export Button X2'], 10);
+    Kien.IESaveData.exportButtonY = parseInt(Kien.IESaveData.parameters['Export Button Y2'], 10);
+    Kien.IESaveData.exportHelpText = Kien.IESaveData.parameters['Export Help Text'];
+    Kien.IESaveData.importHelpText = Kien.IESaveData.parameters['Import Help Text'];
+} else {
+    Kien.IESaveData.parameters = PluginManager.parameters("ImportExportSaveFile");
+    Kien.IESaveData.buttonType = parseInt(Kien.IESaveData.parameters['Menu Button Type'], 10);
+    Kien.IESaveData.textAreaX = parseInt(Kien.IESaveData.parameters['Text Area X'], 10);
+    Kien.IESaveData.textAreaY = parseInt(Kien.IESaveData.parameters['Text Area Y'], 10);
+    Kien.IESaveData.textAreaWidth = parseInt(Kien.IESaveData.parameters['Text Area Width'], 10);
+    Kien.IESaveData.textAreaHeight = parseInt(Kien.IESaveData.parameters['Text Area Height'], 10);
+    Kien.IESaveData.okButtonX = parseInt(Kien.IESaveData.parameters['OK Button X'], 10);
+    Kien.IESaveData.okButtonY = parseInt(Kien.IESaveData.parameters['OK Button Y'], 10);
+    Kien.IESaveData.cancelButtonX = parseInt(Kien.IESaveData.parameters['Cancel Button X'], 10);
+    Kien.IESaveData.cancelButtonY = parseInt(Kien.IESaveData.parameters['Cancel Button Y'], 10);
+    Kien.IESaveData.importButtonX = parseInt(Kien.IESaveData.parameters['Import Button X'], 10);
+    Kien.IESaveData.importButtonY = parseInt(Kien.IESaveData.parameters['Import Button Y'], 10);
+    Kien.IESaveData.exportButtonX = parseInt(Kien.IESaveData.parameters['Export Button X'], 10);
+    Kien.IESaveData.exportButtonY = parseInt(Kien.IESaveData.parameters['Export Button Y'], 10);
+    Kien.IESaveData.exportHelpText = Kien.IESaveData.parameters['Export Help Text'];
+    Kien.IESaveData.importHelpText = Kien.IESaveData.parameters['Import Help Text'];
+}
 
 //-----------------------------------------------------------------------------
 /**
@@ -246,12 +388,24 @@ Graphics.initialize = function(width, height, type) {
 Graphics.createImportExportElement = function() {
     this._importExportElement = document.createElement('textarea');
     this._importExportElement.style.position = 'absolute';
-    this._importExportElement.style.left = Kien.IESaveData.textAreaX + 'px';
-    this._importExportElement.style.top = Kien.IESaveData.textAreaY + 'px';
-    this._importExportElement.style.width = Kien.IESaveData.textAreaWidth + 'px';
-    this._importExportElement.style.height = Kien.IESaveData.textAreaHeight + 'px';
-    this._importExportElement.zIndex = -1;
+    this._importExportElement.style.display = 'none';
+    this._importExportElement.style.zIndex = -1;
     document.body.appendChild(this._importExportElement);
+    let ieElement = this._importExportElement;
+    let canvas = document.body.querySelector("#GameCanvas");
+    let updateFunc = function(event) {
+        let cr = canvas.getBoundingClientRect();
+        let w = canvas.width;
+        let h = canvas.height;
+        let wr = cr.width / w;
+        let hr = cr.height / h;
+        ieElement.style.left = cr.left + Kien.IESaveData.textAreaX * wr + 'px';
+        ieElement.style.top = cr.top + Kien.IESaveData.textAreaY * hr + 'px';
+        ieElement.style.width = Kien.IESaveData.textAreaWidth * wr + 'px';
+        ieElement.style.height = Kien.IESaveData.textAreaHeight * hr + 'px';
+    };
+    window.addEventListener("resize", updateFunc);
+    updateFunc();
 }
 
 //-----------------------------------------------------------------------------
@@ -478,7 +632,7 @@ Scene_File.prototype.createImportExportButton = function() {
         this.setColdFrame(0, 0, w, h/2);
         this.setHotFrame(0, h/2, w, h/2);
     }
-    this.importButton = new Sprite_Button()
+    this.importButton = new Sprite_Button();
     this.importButton.bitmap = ImageManager.loadSystem('buttonImport');
     this.importButton.bitmap.addLoadListener(listener.bind(this.importButton));
     this.importButton.x = Kien.IESaveData.importButtonX;
@@ -486,7 +640,7 @@ Scene_File.prototype.createImportExportButton = function() {
     this.importButton.setClickHandler(this.onImportClicked.bind(this));
     this.addChild(this.importButton);
 
-    this.exportButton = new Sprite_Button()
+    this.exportButton = new Sprite_Button();
     this.exportButton.bitmap = ImageManager.loadSystem('buttonExport');
     this.exportButton.bitmap.addLoadListener(listener.bind(this.exportButton));
     this.exportButton.x = Kien.IESaveData.exportButtonX;
@@ -501,6 +655,7 @@ Scene_File.prototype.onExportClicked = function() {
         Graphics._importExportElement.value = DataManager.loadCompressedGamedata(this.savefileId());
         Graphics._importExportElement.setSelectionRange(0, Graphics._importExportElement.textLength);
         Graphics._importExportElement.style.zIndex = 98;
+        Graphics._importExportElement.style.display = 'block';
         this.okButton.visible = true;
         this.cancelButton.visible = false;
         this.okButton.setClickHandler(this.onExportOkClicked.bind(this));
@@ -517,6 +672,7 @@ Scene_File.prototype.onImportClicked = function() {
     Graphics._importExportElement.value = Kien.IESaveData.importHelpText;
     Graphics._importExportElement.setSelectionRange(0, Graphics._importExportElement.textLength);
     Graphics._importExportElement.style.zIndex = 98;
+    Graphics._importExportElement.style.display = 'block';
     this.okButton.visible = true;
     this.cancelButton.visible = true;
     this.okButton.setClickHandler(this.onImportOkClicked.bind(this));
@@ -527,6 +683,7 @@ Scene_File.prototype.onImportClicked = function() {
 Scene_File.prototype.onExportOkClicked = function() {
     Graphics._importExportElement.value = "";
     Graphics._importExportElement.style.zIndex = -1;
+    Graphics._importExportElement.style.display = 'none';
     this.okButton.visible = false;
     this.activateListWindow();
     this._helpWindow.setText(this.helpWindowText());
@@ -548,6 +705,7 @@ Scene_File.prototype.onImportOkClicked = function() {
 Scene_File.prototype.onImportCancelClicked = function() {
     Graphics._importExportElement.value = "";
     Graphics._importExportElement.style.zIndex = -1;
+    Graphics._importExportElement.style.display = 'none';
     this.okButton.visible = false;
     this.cancelButton.visible = false;
     this.activateListWindow();
